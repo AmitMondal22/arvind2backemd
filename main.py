@@ -15,8 +15,8 @@ app = FastAPI()
 
 # Set up CORS
 origins = [
-    "http://127.0.0.1:8013",
-    "http://localhost:8013",
+    "http://127.0.0.1:8051",
+    "http://localhost:8051",
     "*"
 ]
 
@@ -95,7 +95,7 @@ def index():
 if __name__ == "__main__":
     
     # Run the FastAPI application
-    uvicorn.run("main:app", host="0.0.0.0", port=8013, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8051, reload=True)
     
 
     
