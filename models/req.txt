@@ -1,0 +1,55 @@
+{
+  "TYPE": "N" | "A" | "O"|"B",  // "N" if logType == 0, "A" if logType == 1, "O" if logType == 2
+  "UID": "some_id",         // Value of id_str as a string
+  "DT": "some_date",        // Value of lcd_dt
+  "TM": "some_time",        // Value of lcd_tm
+  "TW": some_value,         // Value of csq
+
+  // AI Channels
+  "C1N": "AI1_Name",        // Name of the first AI channel
+  "C1U": "AI1_Unit",        // Unit of the first AI channel
+  "C1": some_value,         // Current value of the first AI channel, rounded to ai[0].aiDP
+  "T1": some_value,         // Totalizer value for the first AI channel (if totalizer_flag is set), rounded to ai[0].totalizer_dp
+  "T1U": "Totalizer_Unit",  // Totalizer unit for the first AI channel (if totalizer_flag is set)
+
+  "C2N": "AI2_Name",
+  "C2U": "AI2_Unit",
+  "C2": some_value,
+  "T2": some_value,         // if totalizer_flag is set
+  "T2U": "Totalizer_Unit",  // if totalizer_flag is set
+
+  "C3N": "AI3_Name",
+  "C3U": "AI3_Unit",
+  "C3": some_value,
+  "T3": some_value,         // if totalizer_flag is set
+  "T3U": "Totalizer_Unit",  // if totalizer_flag is set
+
+  "C4N": "AI4_Name",
+  "C4U": "AI4_Unit",
+  "C4": some_value,
+  "T4": some_value,         // if totalizer_flag is set
+  "T4U": "Totalizer_Unit",  // if totalizer_flag is set
+
+  "C5N": "AI5_Name",
+  "C5U": "AI5_Unit",
+  "C5": some_value,
+  "T5": some_value,         // if totalizer_flag is set
+  "T5U": "Totalizer_Unit",  // if totalizer_flag is set
+
+  "C6N": "AI6_Name",
+  "C6U": "AI6_Unit",
+  "C6": some_value,
+  "T6": some_value,         // if totalizer_flag is set
+  "T6U": "Totalizer_Unit",  // if totalizer_flag is set
+
+  // DI Channels
+  "DI1N": "DI1_Name",       // Name of the first DI channel
+  "DI1U": "DI1_Unit",       // Unit of the first DI channel
+  "DI1": some_value,        // Value of the first DI channel
+  "PULSE1": some_value,     // Pulse count value for the first DI channel, multiplied by pulseSetting.pulse_calibration
+
+  "DI2N": "DI2_Name",       // Name of the second DI channel
+  "DI2U": "DI2_Unit",       // Unit of the second DI channel
+  "DI2": some_value,        // Value of the second DI channel
+  "PULSE2": some_value      // Pulse count value for the second DI channel, multiplied by pulseSetting.pulse_calibration
+}
