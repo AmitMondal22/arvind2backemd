@@ -113,6 +113,7 @@ async def publish_message(request: Request, message_data: MqttAllWfmsDO):
         
         condi=f"device='{message_data.device}'"
         deviceData = select_last_data("md_device","gateway_id",condi)
+        print("}{}{}{}{}{}{}",deviceData)
         getway_id = deviceData['gateway_id']
         
         print("...............",message_data.device,doData)
@@ -120,7 +121,7 @@ async def publish_message(request: Request, message_data: MqttAllWfmsDO):
         srdata = encode_do_to_frame(message_data.device,doData)
         # srdata=f"*OPADO, {message_data.device},{doData}#"
         print(srdata)
-        
+        print(f"/ST/'{getway_id}'")
         mqtt_client.publish(f"/ST/{getway_id}", srdata, qos=0)
         resdata = successResponse(user_data, message="Message published successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
