@@ -7,7 +7,7 @@ from controllers.settings import ClientSettingsController
 
 from models.organization_model import AddOrganization, EditOrganizationData, DeleteOrganization,ListOrganization
 from models.project_model import AddProject,EditProjectData,DeleteProject,ProjectDeviceAdd,ProjectDeviceDelete
-from models.manage_user_model import AddUser, EditUser,DeleteUser,UserDeviceAdd,UserDeviceEdit,UserDeviceDelete,ListUsers,UserInfo,ClientId,DeviceInfo,DeviceListOrg,DeviceListOrgProject
+from models.manage_user_model import AddUser, EditUser,DeleteUser,UserDeviceAdd,UserDeviceEdit,UserDeviceDelete,ListUsers,UserInfo,ClientId,DeviceInfo,DeviceListOrg,DeviceListOrgProject,DeviceStatusUpdate
 from models.device_data_model import WeatherFlowData,AddAlert,DeviceAdd,DeviceEdit,EditAlert,DeleteAlert,TemperatureUsed, VoltageData,OrganizationSettings,OrganizationSettingsList,EditOrganization, ChartData
 from models.client_settings import ClientScreenSettings, ClientScreenSettingsEdit
 
@@ -534,7 +534,23 @@ async def list_device(request: Request,params:DeviceInfo):
     except Exception as e:
         # For any other unexpected error, return a 500 Internal Server Error
         raise HTTPException(status_code=500, detail="Internal server error")
-
+    
+    
+@api_client_routes.post("/devices/status_update", dependencies=[Depends(mw_user_client)])
+async def list_device(request: Request, params: DeviceStatusUpdate):
+    try:
+        userdata = request.state.user_data
+        data = await DeviceController.edit_device_status(params, userdata)  # pass userdata
+        resdata = successResponse(data, message="List of devices")
+        return Response(
+            content=json.dumps(resdata, cls=DecimalEncoder),
+            media_type="application/json",
+            status_code=200
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # @api_client_routes.post("/manage/devices/add")

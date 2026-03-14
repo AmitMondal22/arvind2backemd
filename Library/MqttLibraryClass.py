@@ -80,7 +80,7 @@ class MqttLibraryClass:
                 )
 
                 asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id))
-                asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id)) 
+                asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id))
                     
                     
                     

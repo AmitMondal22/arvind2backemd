@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, constr, validator
 from datetime import date
+from typing import List
 
 class AddUser(BaseModel):
     name: str
@@ -68,6 +69,11 @@ class ClientId(BaseModel):
 class DeviceInfo(BaseModel):
     client_id: int
     device_id: int
+    
+    
+class DeviceStatusUpdate(BaseModel):
+    client_id: int
+    device_id: List[int]  
     
     
 class DeviceListOrg(BaseModel):

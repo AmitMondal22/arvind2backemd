@@ -43,7 +43,7 @@ async def user_device_list(client_id, user_id, organization_id):
     
 async def project_user_device_list(client_id, user_id, organization_id,project_id):
     try:
-        select = "d.device_id, d.device, d.device_name, d.model, wd.created_at"
+        select = "d.device_id, d.device, d.device_name,d.device_status, d.model, wd.created_at"
     
         condition = (
             f"d.device_id = mud.device_id "
@@ -80,7 +80,7 @@ async def project_user_device_list(client_id, user_id, organization_id,project_i
 
 async def project_list_device(client_id, organization_id,project_id):
     try:
-        select = "d.device_id, d.device, d.device_name, d.model, wd.created_at"
+        select = "d.device_id, d.device,d.device_status, d.device_name, d.model, wd.created_at"
     
         # Define the tables with the subquery for the latest td_water_data
         tables = """md_device AS d
@@ -110,7 +110,7 @@ async def project_list_device(client_id, organization_id,project_id):
 async def device_info(params,userdata):
     try:
         condition = f"client_id={userdata['client_id']} AND device_id = {params.device_id}"
-        select="device_id, client_id, device, device_name, do_channel, model, lat, lon, imei_no, last_maintenance, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
+        select="device_id, device_status, client_id, device, device_name, do_channel, model, lat, lon, imei_no, last_maintenance, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
         data = select_one_data("md_device",select, condition,order_by="device_id DESC")
         
         # select2="count(a.alert_id) alert, a.alert_type, a.unit_id,u.unit,u.unit_name"
@@ -159,6 +159,24 @@ async def edit_device(params):
     try:
         condition = f"device_id = {params.device_id} AND client_id = {params.client_id}"
         columns={"device":params.device, "device_name":params.device_name, "do_channel":params.do_channel, "model":params.model, "lat":params.lat, "lon":params.lon, "imei_no":params.imei_no, "updated_at":get_current_datetime()}
+        data = update_data("md_device", columns, condition)
+        print(data)
+        return data
+    except Exception as e:
+        raise e
+    
+    
+async def edit_device_status(params, userdata):  # added missing userdata param
+    try:
+        if not params.device_id:
+            raise ValueError("device_id list cannot be empty")
+
+        # Convert list [1, 2, 3, 4] → "1, 2, 3, 4" for SQL IN clause
+        device_ids_str = ", ".join(str(d) for d in params.device_id)
+
+        condition = f"device_id IN ({device_ids_str}) AND client_id = {params.client_id}"
+        columns = {"device_status": "OFFLINE"}
+
         data = update_data("md_device", columns, condition)
         print(data)
         return data
