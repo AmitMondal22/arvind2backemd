@@ -20,18 +20,32 @@ class MqttAllWfmsDO(BaseModel):
     device_id: int
     do: List[DigitalOutput]
     
+# class MqttPublishDeviceSchedule(BaseModel):
+#     schedule_id:Optional[int]=0
+#     organization_id: Optional[int]=None
+#     device_id: Optional[int]=None
+#     device: str
+#     do_type: int
+#     do_no: int
+#     one_on_time: str
+#     one_off_time: str
+#     two_on_time: str
+#     two_off_time: str
+#     datalog_sec: int
+    
 class MqttPublishDeviceSchedule(BaseModel):
-    schedule_id:Optional[int]=0
-    organization_id: Optional[int]=None
-    device_id: Optional[int]=None
+    schedule_id: Optional[int] = None
+    organization_id: Optional[int] = None
+    device_id: Optional[int] = None
     device: str
     do_type: int
     do_no: int
-    one_on_time: str
-    one_off_time: str
-    two_on_time: str
-    two_off_time: str
+    one_on_time: time
+    one_off_time: time
+    two_on_time: time
+    two_off_time: time
     datalog_sec: int
+    days: str
     
 class MqttReadSchedule(BaseModel):
     device: str

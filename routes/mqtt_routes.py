@@ -173,45 +173,160 @@ async def publish_message(request: Request, message_data: MqttWfmsDO):
     except Exception as e:
         # For any other unexpected error, return a 500 Internal Server Error
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+def days_to_mask(days_str: str) -> int:
+    day_map = {
+        "sun": 0,
+        "mon": 1,
+        "tue": 2,
+        "wed": 3,
+        "thu": 4,
+        "fri": 5,
+        "sat": 6
+    }
+
+    mask = 0
+    for d in days_str.lower().split(","):
+        d = d.strip()
+        if d in day_map:
+            mask |= (1 << day_map[d])
+
+    return mask
     
+
+# @mqtt_routes.post("/publish_schedule", dependencies=[Depends(mw_user_client)])
+# async def publish_message(request: Request, message_data: MqttPublishDeviceSchedule):
+#     try:
+#         user_data=request.state.user_data
+#         print("???????????????/",user_data)
+#         one_on_time=message_data.one_on_time
+#         one_off_time=message_data.one_off_time
+#         two_on_time=message_data.two_on_time
+#         two_off_time=message_data.two_off_time
+#         one_on_hr, one_on_min, _ = one_on_time.split(":")
+#         one_off_hr, one_off_min, _ = one_off_time.split(":")
+#         two_on_hr, two_on_min, _ = two_on_time.split(":")
+#         two_off_hr, two_off_min, _ = two_off_time.split(":")
+        
+#         user_id = await insert_updatesheduling(user_data,message_data)
+        
+#         dotype = 4 if message_data.do_type == 0 else 5
+        
+#         # DeviceID=0001 | DO Type=2 | Channel=4 | ON=06:30 | OFF=08:45 | Days=All (Sun–Sat)  
+#         # *LC,   0001 2 4 06 1E 08 2D 7F#
+#         pubdata=f"^LC,{message_data.device},{dotype},{message_data.do_no-1},{one_on_hr},{one_on_min},{one_off_hr},{one_off_min}*"
+        
+        
+#         # pubdata=f"*CONFIG,{message_data.device},{message_data.do_no-1},{dotype},{one_on_hr},{one_on_min},{one_off_hr},{one_off_min},{two_on_hr},{two_on_min},{two_off_hr},{two_off_min},{message_data.datalog_sec*60}#"
+        
+#         # srdata=f"*OPADO, ,1,2,0,0#"
+#         # //*DOTIM,UID,D0-INDEX,DO_TYPE,ON-HR,ON-MIN,OFF-HR,OFF-MIN,ON1-HR,ON1-MIN,OFF1-HR,OFF1-MIN#
+#         # //*DOTIM, ,0,4,16,00,17,00,18,00,19,00#
+        
+        
+#         # mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, qos=0)
+        
+#         resdata = successResponse(user_id, message="Message published successfully")
+#         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
+#     except ValueError as ve:
+#         # If there's a ValueError, return a 400 Bad Request with the error message
+#         raise HTTPException(status_code=400, detail=str(ve))
+#     except Exception as e:
+#         # For any other unexpected error, return a 500 Internal Server Error
+#         raise HTTPException(status_code=500, detail="Internal server error")
+    
+# async def publish_settings(message_data: MqttPublishDeviceSchedule):
+
 
 @mqtt_routes.post("/publish_schedule", dependencies=[Depends(mw_user_client)])
 async def publish_message(request: Request, message_data: MqttPublishDeviceSchedule):
     try:
-        user_data=request.state.user_data
-        print("???????????????/",user_data)
-        one_on_time=message_data.one_on_time
-        one_off_time=message_data.one_off_time
-        two_on_time=message_data.two_on_time
-        two_off_time=message_data.two_off_time
-        one_on_hr, one_on_min, _ = one_on_time.split(":")
-        one_off_hr, one_off_min, _ = one_off_time.split(":")
-        two_on_hr, two_on_min, _ = two_on_time.split(":")
-        two_off_hr, two_off_min, _ = two_off_time.split(":")
-        
-        user_id = await insert_updatesheduling(user_data,message_data)
-        
-        dotype = 4 if message_data.do_type == 0 else 5
-        pubdata=f"*CONFIG,{message_data.device},{message_data.do_no-1},{dotype},{one_on_hr},{one_on_min},{one_off_hr},{one_off_min},{two_on_hr},{two_on_min},{two_off_hr},{two_off_min},{message_data.datalog_sec*60}#"
-        
-        # srdata=f"*OPADO, ,1,2,0,0#"
-        # //*DOTIM,UID,D0-INDEX,DO_TYPE,ON-HR,ON-MIN,OFF-HR,OFF-MIN,ON1-HR,ON1-MIN,OFF1-HR,OFF1-MIN#
-        # //*DOTIM, ,0,4,16,00,17,00,18,00,19,00#
-        
-        
-        mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, qos=0)
-        
-        resdata = successResponse(user_id, message="Message published successfully")
-        return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
-    except ValueError as ve:
-        # If there's a ValueError, return a 400 Bad Request with the error message
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        # For any other unexpected error, return a 500 Internal Server Error
-        raise HTTPException(status_code=500, detail="Internal server error")
-    
-# async def publish_settings(message_data: MqttPublishDeviceSchedule):
+        user_data = request.state.user_data
 
+        # Time split
+        one_on_hr = message_data.one_on_time.hour
+        one_on_min = message_data.one_on_time.minute
+
+        one_off_hr = message_data.one_off_time.hour
+        one_off_min = message_data.one_off_time.minute
+
+        two_on_hr = message_data.two_on_time.hour
+        two_on_min = message_data.two_on_time.minute
+
+        two_off_hr = message_data.two_off_time.hour
+        two_off_min = message_data.two_off_time.minute
+        
+        
+        on_hr_hex = f"{one_on_hr:02X}"
+        on_min_hex = f"{one_on_min:02X}"
+        off_hr_hex = f"{one_off_hr:02X}"
+        off_min_hex = f"{one_off_min:02X}"
+
+        # Convert values
+        device_id_int = int(message_data.device)  # e.g. "0002" → 2
+        rxUID_hex = f"{device_id_int:04X}"        # 2 bytes HEX
+
+        do_type = message_data.do_type
+        channel = (message_data.do_no - 1)
+        
+        
+        if do_type == 0:
+            do_type_mapped = 4
+        elif do_type == 1:
+            do_type_mapped = 5
+        else:
+            raise ValueError("Invalid do_type")
+
+        # Byte 2 (do_type + channel)
+        byte2 = ((do_type_mapped & 0x0F) << 4) | (channel & 0x0F)
+
+        # Time HEX
+        on_hr_hex = f"{int(one_on_hr):02X}"
+        on_min_hex = f"{int(one_on_min):02X}"
+        off_hr_hex = f"{int(one_off_hr):02X}"
+        off_min_hex = f"{int(one_off_min):02X}"
+
+        # Days mask
+        days_mask = days_to_mask(message_data.days)
+        days_hex = f"{days_mask:02X}"
+
+        # Final payload (8 bytes)
+        hex_payload = (
+            f"{rxUID_hex}"
+            f"{byte2:02X}"
+            f"{on_hr_hex}"
+            f"{on_min_hex}"
+            f"{off_hr_hex}"
+            f"{off_min_hex}"
+            f"{days_hex}"
+        )
+
+        pubdata = f"*LC,{hex_payload}#"
+
+        print("Generated:", pubdata)
+        
+        
+        userdata=request.state.user_data
+        condition = f"client_id={userdata['client_id']} AND device_id = {message_data.device_id}"
+        select="gateway_id"
+        data = select_one_data("md_device",select, condition,order_by="device_id DESC")
+
+        
+
+        mqtt_client.publish(f"/ST/{data['gateway_id']}", pubdata, qos=1)
+
+        user_id = await insert_updatesheduling(user_data, message_data)
+
+        return Response(
+            content=json.dumps(successResponse(user_id, message="Message published successfully")),
+            media_type="application/json",
+            status_code=200
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
     
 async def insert_updatesheduling(user_data,message_data: MqttPublishDeviceSchedule):
 
