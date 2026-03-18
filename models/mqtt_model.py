@@ -50,6 +50,7 @@ class MqttPublishDeviceSchedule(BaseModel):
 class MqttReadSchedule(BaseModel):
     device: str
     do_no: int
+    request_type: int
     
 class ResetMqttPublishDeviceSchedule(BaseModel):
     organization_id: int

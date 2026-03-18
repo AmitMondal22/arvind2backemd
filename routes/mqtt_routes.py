@@ -402,16 +402,39 @@ async def reset_sheduling(request: Request,message_data: ResetMqttPublishDeviceS
     
 
 @mqtt_routes.post("/read_sheduling", dependencies=[Depends(mw_user_client)])
-async def reset_sheduling(request: Request,message_data: MqttReadSchedule):
-    pubdata=f"*RDSETTING,{message_data.do_no-1}#"
-    
-    # srdata=f"*OPADO, ,1,2,0,0#"
-    # //*DOTIM,UID,D0-INDEX,DO_TYPE,ON-HR,ON-MIN,OFF-HR,OFF-MIN,ON1-HR,ON1-MIN,OFF1-HR,OFF1-MIN#
-    # //*DOTIM, ,0,4,16,00,17,00,18,00,19,00#
-    
-    
-    mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, qos=0)
-    return pubdata
+async def reset_sheduling(request: Request, message_data: MqttReadSchedule):
+    try:
+        # Convert Device ID → HEX (4 digits)
+        device_id_int = int(message_data.device)   # "0050" → 50
+        uid_hex = f"{device_id_int:04X}"           # → 0032
+
+        # Channel → HEX (2 digits)
+        channel = message_data.do_no
+        ch_hex = f"{channel:02X}"                  # → 01
+
+        # Payload
+        payload = f"{uid_hex}{ch_hex}"
+
+        # Command selection
+        if message_data.request_type == 0:
+            cmd = "RT"   # Read Timer
+        else:
+            cmd = "RM"   # Read Mode
+
+        pubdata = f"*{cmd},{payload}#"
+
+        # Publish MQTT
+        mqtt_client.publish(f"/ST/{message_data.device}", pubdata, qos=0)
+
+        print("Published:", pubdata)
+
+        return {
+            "status": "success",
+            "command": pubdata
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
     
 def convert_timedelta(obj):
