@@ -82,15 +82,33 @@ def manage_organization_project(user_data):
     
 def list_project(user_data):
     try:
-        if user_data["user_type"]=='U' or user_data["user_type"]=='O':
-             condition =f"a.organization_id = b.organization_id AND a.client_id = {user_data['client_id']} AND a.organization_id = {user_data['organization_id']} "
-            # condition =f"a.client_id = {user_data['client_id']} AND a.organization_id = {user_data['organization_id']} AND "
+        if user_data["user_type"] in ['U', 'O']:
+            condition = f"""
+                a.organization_id = b.organization_id
+                AND a.client_id = {user_data['client_id']}
+                AND a.organization_id = {user_data['organization_id']}
+            """
 
-        elif user_data["user_type"]=='C':
-            condition =f"a.client_id = {user_data['client_id']}"
-        select="b.project_name, b.project_id, b.organization_id, a.organization_name, DATE_FORMAT(b.created_at, '%Y-%m-%d %H:%i:%s') AS created_at"
-        data = select_data("md_organization a, md_project b", select,condition)
+        elif user_data["user_type"] == 'C':
+            condition = f"""
+                a.organization_id = b.organization_id
+                AND a.client_id = {user_data['client_id']}
+            """
+
+        select = """
+            DISTINCT b.project_name,
+            b.project_id,
+            b.organization_id,
+            a.organization_name,
+            DATE_FORMAT(b.created_at, '%Y-%m-%d %H:%i:%s') AS created_at
+        """
+
+        table = "md_project b JOIN md_organization a ON a.organization_id = b.organization_id"
+
+        data = select_data(table, select, condition)
+
         return data
+
     except Exception as e:
         raise e
     

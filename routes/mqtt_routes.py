@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException,Response, Depends,Request
 from controllers.user import UserController
 from middleware.MyMiddleware import mw_client,mw_user,mw_user_client
-from models.mqtt_model import MqttWfmsDO,MqttAllWfmsDO, MqttPublishDeviceSchedule,MqttPublishDeviceScheduleList, ResetMqttPublishDeviceSchedule, MqttReadSchedule
+from models.mqtt_model import MqttWfmsDO,MqttAllWfmsDO, MqttPublishDeviceSchedule,MqttPublishDeviceScheduleList, ResetMqttPublishDeviceSchedule, MqttReadSchedule, MqttReadLastData
 from utils.date_time_format import get_current_datetime
 from Library.DecimalEncoder import DecimalEncoder
 
@@ -309,8 +309,7 @@ async def publish_message(request: Request, message_data: MqttPublishDeviceSched
         
         userdata=request.state.user_data
         condition = f"client_id={userdata['client_id']} AND device_id = {message_data.device_id}"
-        select="gateway_id"
-        data = select_one_data("md_device",select, condition,order_by="device_id DESC")
+        data = select_one_data("md_device","gateway_id", condition,order_by="device_id DESC")
 
         
 
@@ -422,9 +421,14 @@ async def reset_sheduling(request: Request, message_data: MqttReadSchedule):
             cmd = "RM"   # Read Mode
 
         pubdata = f"*{cmd},{payload}#"
+        
+        
+        userdata=request.state.user_data
+        condition = f"client_id={userdata['client_id']} AND device_id = {message_data.device_id}"
+        data = select_one_data("md_device","gateway_id", condition,order_by="device_id DESC")
 
         # Publish MQTT
-        mqtt_client.publish(f"/ST/{message_data.device}", pubdata, qos=0)
+        mqtt_client.publish(f"/ST/{data['gateway_id']}", pubdata, qos=0)
 
         print("Published:", pubdata)
 
@@ -437,6 +441,56 @@ async def reset_sheduling(request: Request, message_data: MqttReadSchedule):
         raise HTTPException(status_code=500, detail=str(e))
     
     
+@mqtt_routes.post("/read_last_data", dependencies=[Depends(mw_user_client)])
+async def read_last_data(request: Request, message_data: MqttReadLastData):
+    try:
+        # 🔹 Convert device_id → HEX (4 digit uppercase)
+        device_id_int = int(message_data.device_id)
+        nid = format(device_id_int, '04X')  # Example: 10 → 000A
+
+        # 🔹 Create payload
+        cmd = "LRDT"
+        pubdata = f"*{cmd},{nid}#"
+        # pubdata = f"*{cmd},{message_data.device_id}#"
+
+        # 🔹 Get user data
+        userdata = request.state.user_data
+
+        # 🔹 Fetch gateway_id
+        condition = f"client_id={userdata['client_id']} AND device_id={message_data.device_id}"
+        data = select_one_data(
+            "md_device",
+            "gateway_id",
+            condition,
+            order_by="device_id DESC"
+        )
+
+        if not data:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        # 🔹 Publish MQTT
+        topic = f"/ST/{data['gateway_id']}"
+        mqtt_client.publish(topic, pubdata, qos=0)
+
+        print("Published:", pubdata, "→ Topic:", topic)
+        
+        
+        columns={"device_status":"OFFLINE"}
+        condition = f"device_id = {message_data.device_id}"
+        update_data("md_device",columns,condition)
+
+        return {
+            "status": "success",
+            "command": pubdata,
+            "topic": topic
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    
+    
+        
 def convert_timedelta(obj):
     if isinstance(obj, timedelta):
         # Convert timedelta to total seconds or a string representation

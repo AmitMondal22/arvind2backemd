@@ -34,16 +34,17 @@ class GatewayController:
         try:
             current_datetime = get_current_datetime()
             columns_values = {
-                "gateway_id": f"'{params.gateway_id}'",
+                "gateway_id": params.gateway_id,
                 "start_id": params.start_id,
                 "max_id": params.max_id,
                 "retry": params.retry,
-                "updated_at": f"'{current_datetime}'"
+                "updated_at": current_datetime
             }
             condition = f"id = {params.id}"
             update_res = update_data("md_gateway", columns_values, condition)
-            if not update_res:
-                raise ValueError("Gateway update failed")
+            
+            # Since MASTER_MODEL.update_data triggers fetchall() on UPDATEs, it may return False. 
+            # We assume success if it reaches here without an SQL exception.
             return {"id": params.id, "gateway_id": params.gateway_id}
         except Exception as e:
             raise e

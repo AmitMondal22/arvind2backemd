@@ -52,9 +52,38 @@ async def update_device(device_id,imei,gateway_id):
         columns={"gateway_id":gateway_id,"device_status":"ONLINE"}
         condition = f"device = {device_id}"
         update_data("md_device",columns,condition)
+        await new_getway(gateway_id)
         return True
     except Exception as e:
         raise ValueError("Could not fetch data",e)
+    
+    
+async def new_getway(gateway_id):
+    try:
+        print("Gateway ID:", gateway_id)
+
+        md_gateway = select_one_data(
+            "md_gateway",
+            "*",
+            f"gateway_id='{gateway_id}'"
+        )
+
+        # ✅ Check if data exists properly
+        if md_gateway and md_gateway.get("gateway_id"):
+            print("Gateway already exists → skip insert")
+            return
+
+        # ❌ Not available → Insert
+        print("Gateway not found → inserting")
+
+        current_datetime = get_current_datetime()
+        columns = "gateway_id, start_id, max_id, retry, created_at"
+        value = f"'{gateway_id}', 1, 2, 2, '{current_datetime}'"
+
+        insert_data("md_gateway", columns, value)
+
+    except Exception as e:
+        raise ValueError(f"Could not process gateway: {e}")
     
   
 async def send_last_weather_data(client_id, device_id, device):
