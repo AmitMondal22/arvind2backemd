@@ -11,8 +11,13 @@ import asyncio
 from datetime import datetime
 from utils.filter_Mqtt_Data import parse_lora_packet 
 
+import importlib
+import concurrent.futures
+
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=100)
+
 class MqttLibraryClass:
-    def __init__(self, broker_address, broker_port,username, password):
+    def __init__(self, broker_address, broker_port, username, password):
         self.client = mqtt.Client()
         self.client.username_pw_set(username, password)
         self.broker_address = broker_address
@@ -29,6 +34,13 @@ class MqttLibraryClass:
             client.subscribe(topic, qos=qos)
 
     def on_message(self, client, userdata, msg):
+        try:
+            # Submit to ThreadPool to prevent blocking the MQTT client
+            executor.submit(self.process_message_thread, msg)
+        except Exception as e:
+            print("Error parsing on_message submit:", e)
+
+    def process_message_thread(self, msg):
         try:
             print(f"Message received on topic {msg.topic}")
             topic_name=msg.topic
@@ -124,9 +136,10 @@ class MqttLibraryClass:
                         
                 #     asyncio.run(DeviceController.add_device(paramsdata)) 
 
+                asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData)) 
                 
         except Exception as e:
-            print("Error in on_message",e)
+            print("Error in process_message_thread:",e)
     
 
     def connect(self):

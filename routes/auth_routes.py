@@ -41,6 +41,28 @@ async def login(user: auth_model.Login):
 
 
 
+@auth_routes.post("/send-otp")
+async def send_otp(mobile_payload: auth_model.SendOtpMobile):
+    try:
+        data = await AuthController.send_otp(mobile_payload)
+        resdata = successResponse(data, message="OTP sent successfully")
+        return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+        
+@auth_routes.post("/verify-otp")
+async def verify_otp(otp_payload: auth_model.VerifyOtpMobile):
+    try:
+        data = await AuthController.verify_otp(otp_payload)
+        resdata = successResponse(data, message="User logged in successfully via OTP")
+        return Response(content=json.dumps(resdata, cls=DecimalEncoder), media_type="application/json", status_code=200)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 # Apply middleware to specific routes
 @auth_routes.get("/protected-route", dependencies=[Depends(mw_client)])
 async def protected_route(request: Request):

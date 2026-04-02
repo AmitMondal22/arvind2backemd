@@ -1,4 +1,4 @@
-from db_model.MASTER_MODEL import insert_data,select_one_data
+from db_model.MASTER_MODEL import insert_data,select_one_data,update_data
 from utils.has_password import get_password_hash, verify_password
 from utils.otp import generate_otp
 from utils.date_time_format import get_current_datetime
@@ -153,6 +153,100 @@ async def login(user) -> dict:
         # Verify password
         if not verify_password(user.password, login_data["password"]):
             raise ValueError("Password mismatch")
+
+        # Create and return JWT token
+        access_token = create_access_token(data={"sub": login_data})
+        return {"user_data": login_data, "token": access_token}
+
+    except Exception as e:
+        raise e
+
+async def send_otp(mobile_payload):
+    try:
+        mobile_number = mobile_payload.mobile_number
+        base_select = "user_id, user_mobile, user_active_status"
+        # Checking if user exists. We assume 'user_mobile' exists in users table.
+        # Alternatively, adjust to your schema if mobile number is stored differently.
+        base_condition = "user_mobile = '{}'".format(mobile_number)
+        user_info = select_one_data("users", base_select, base_condition, None)
+        
+        if not user_info:
+            raise ValueError("User not found with this mobile number")
+            
+        new_otp = generate_otp(6)
+        update_condition = f"user_id = {user_info['user_id']}"
+        set_values = {"otp_number": str(new_otp), "otp_active_status": "Y"}
+        update_data("users", set_values, update_condition)
+        
+        # Here: Integrate SMS Gateway API (Twilio, Gupshup, Textlocal, etc.)
+        print(f"OTP sent to {mobile_number}: {new_otp}")
+        
+        return {"message": "OTP sent successfully"}
+    except Exception as e:
+        raise e
+
+async def verify_otp(otp_payload):
+    try:
+        mobile_number = otp_payload.mobile_number
+        otp_code = otp_payload.otp
+        
+        # Base select and condition for initial user info fetch
+        base_select = ("user_id, user_name, user_email, user_mobile, user_info_id, user_active_status, "
+                       "user_type, otp_number, otp_active_status, password, created_by, "
+                       "DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at")
+        base_condition = "user_mobile = '{}' AND otp_number = '{}' AND otp_active_status = 'Y'".format(mobile_number, otp_code)
+        
+        # Fetch initial user info
+        user_info = select_one_data("users", base_select, base_condition, None)
+        
+        if user_info is None or not user_info:
+            raise ValueError("Invalid OTP or Mobile Number")
+            
+        # Optional: Invalidate OTP after successful verification
+        update_data("users", {"otp_active_status": "N", "otp_number":""}, f"user_id = {user_info['user_id']}")
+        
+        # Prepare select fields and joins based on user type (Re-using login logic)
+        select_fields = [
+            "u.user_id", "u.user_name", "u.user_email", "u.user_mobile", "u.user_info_id", 
+            "u.user_active_status", "u.user_type", "u.otp_number", 
+            "u.otp_active_status", "u.password", "u.created_by", 
+            "DATE_FORMAT(u.created_at, '%Y-%m-%d %H:%i:%s') AS created_at"
+        ]
+        additional_joins = ""
+        condition = "u.user_id = {}".format(user_info['user_id'])
+
+        if user_info['user_type'] == 'C':
+            select_fields += [
+                "c.client_id", "c.client_name", "c.client_address", "c.logo",
+                "c.client_mobile", "c.client_email"
+            ]
+            additional_joins = "JOIN md_client AS c ON u.user_info_id = c.client_id"
+            condition += " AND u.user_active_status = 'Y' AND u.user_type = 'C'"
+        elif user_info['user_type'] == 'U':
+            select_fields += [
+                "c.client_id", "c.client_name", "c.client_address","c.logo", 
+                "c.client_mobile", "c.client_email", "org.organization_name", 
+                "org.organization_id", "svo.gv_energy_used", "svo.gv_voltage", 
+                "svo.gv_current", "svo.gv_power", "svo.mn_add_organization", 
+                "svo.mn_device_management", "svo.mn_user_management", 
+                "svo.en_tab_device_info", "svo.en_tab_create_alert", 
+                "svo.en_tab_scheduling", "svo.en_tab_report_analysis"
+            ]
+            additional_joins = (
+                "JOIN md_organization AS org ON u.user_info_id = org.organization_id "
+                "JOIN md_client AS c ON org.client_id = c.client_id "
+                "LEFT JOIN st_view_organization AS svo ON org.organization_id = svo.organization_id AND svo.user_type='U'"
+            )
+            condition += " AND u.user_active_status = 'Y' AND u.user_type = 'U'"
+
+        # Formulate the final query
+        table = f"users AS u {additional_joins}"
+        select = ", ".join(select_fields)
+
+        # Fetch user data based on user type
+        login_data = select_one_data(table, select, condition, None)
+        if login_data is None:
+            raise ValueError("User login failed during OTP verification")
 
         # Create and return JWT token
         access_token = create_access_token(data={"sub": login_data})

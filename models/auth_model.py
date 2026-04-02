@@ -35,6 +35,13 @@ class Login(BaseModel):
         if any(char in v for char in forbidden_characters):
             raise ValueError("Invalid input")
         return v
+        
+class SendOtpMobile(BaseModel):
+    mobile_number: str
+
+class VerifyOtpMobile(BaseModel):
+    mobile_number: str
+    otp: str
     
 class ChangePassword(BaseModel):
     old_password: str
