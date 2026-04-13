@@ -316,6 +316,9 @@ async def publish_message(request: Request, message_data: MqttPublishDeviceSched
         mqtt_client.publish(f"/ST/{data['gateway_id']}", pubdata, qos=1)
 
         user_id = await insert_updatesheduling(user_data, message_data)
+        
+        
+        
 
         return Response(
             content=json.dumps(successResponse(user_id, message="Message published successfully")),
@@ -325,26 +328,72 @@ async def publish_message(request: Request, message_data: MqttPublishDeviceSched
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def remove_none_fields(data: dict):
+    return {k: v for k, v in data.items() if v is not None}
     
-    
-async def insert_updatesheduling(user_data,message_data: MqttPublishDeviceSchedule):
+async def insert_updatesheduling(user_data, message_data: MqttPublishDeviceSchedule):
 
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LLLLLLLLLLLL")
     current_datetime = get_current_datetime()
-    condi=f"device='{message_data.device}' AND do_no ={message_data.do_no} AND client_id = {user_data['client_id']}"
-    find_device_schedule=select_last_data("device_schedule", "schedule_id", condi , "created_at")
-    print(">>>>>>>>>>>>>>>>>",find_device_schedule)
+
+    condi = f"device='{message_data.device}' AND do_no={message_data.do_no} AND client_id={user_data['client_id']}"
+
+    find_device_schedule = select_last_data("device_schedule", "schedule_id", condi, "created_at")
+    print(">>>>>>>>>>>>>>>>>", find_device_schedule)
+
+    # Convert Pydantic model → dict
+    data_dict = message_data.dict()
+
+    # Remove None fields
+    clean_data = remove_none_fields(data_dict)
+
     if find_device_schedule is not None:
-        # columns={"organization_name":organization.organization_name,"created_by":organization.created_by,"updated_at":get_current_datetime()}
-        columns={"do_type":message_data.do_type,"datalog_sec":message_data.datalog_sec, "one_on_time": message_data.one_on_time, "one_off_time":message_data.one_off_time, "two_on_time":message_data.two_on_time, "two_off_time":message_data.two_off_time, "created_by":user_data['user_id'], "updated_at":current_datetime}
+        # UPDATE → only non-null fields
+        columns = {
+            **clean_data,
+            "updated_at": current_datetime,
+            "created_by": user_data['user_id']
+        }
+
         user_id = update_data("device_schedule", columns, condi)
+
     else:
-        columns = "client_id, device, do_type, datalog_sec, do_no, one_on_time, one_off_time, two_on_time, two_off_time, created_by, created_at"
-        value = f"{user_data['client_id']}, '{message_data.device}', {message_data.do_type}, {message_data.datalog_sec}, {message_data.do_no}, '{message_data.one_on_time}', '{message_data.one_off_time}', '{message_data.two_on_time}', '{message_data.two_off_time}',{user_data['user_id']}, '{current_datetime}'"
-        user_id = insert_data("device_schedule", columns, value)
-        
-    print("KKKKKKKKKKKK",user_id)
+        # INSERT → build dynamically
+        insert_dict = {
+            "client_id": user_data['client_id'],
+            "device": message_data.device,
+            "do_no": message_data.do_no,
+            "created_by": user_data['user_id'],
+            "created_at": current_datetime,
+            **clean_data
+        }
+
+        # Remove duplicate keys if any
+        insert_dict.pop("schedule_id", None)
+        insert_dict.pop("organization_id", None)
+
+        columns = ", ".join(insert_dict.keys())
+
+        # Handle NULL properly
+        values = []
+        for v in insert_dict.values():
+            if v is None:
+                values.append("NULL")
+            elif isinstance(v, str):
+                values.append(f"'{v}'")
+            else:
+                values.append(str(v))
+
+        values_str = ", ".join(values)
+
+        user_id = insert_data("device_schedule", columns, values_str)
+
+    print("KKKKKKKKKKKK", user_id)
+
     await send_readsettings(user_data['client_id'], message_data.device, message_data.do_no)
+
     return user_id
 
 
@@ -405,6 +454,7 @@ async def reset_sheduling(request: Request, message_data: MqttReadSchedule):
     try:
         # Convert Device ID → HEX (4 digits)
         device_id_int = int(message_data.device)   # "0050" → 50
+        print("device_id_int-------------------",message_data)
         uid_hex = f"{device_id_int:04X}"           # → 0032
 
         # Channel → HEX (2 digits)
@@ -424,6 +474,7 @@ async def reset_sheduling(request: Request, message_data: MqttReadSchedule):
         
         
         userdata=request.state.user_data
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>",message_data)
         condition = f"client_id={userdata['client_id']} AND device_id = {message_data.device_id}"
         data = select_one_data("md_device","gateway_id", condition,order_by="device_id DESC")
 
@@ -431,6 +482,9 @@ async def reset_sheduling(request: Request, message_data: MqttReadSchedule):
         mqtt_client.publish(f"/ST/{data['gateway_id']}", pubdata, qos=0)
 
         print("Published:", pubdata)
+        
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>||||||||||||||",userdata['client_id'], message_data.device, channel)
+        await send_readsettings(userdata['client_id'], message_data.device, channel)
 
         return {
             "status": "success",
@@ -499,18 +553,18 @@ def convert_timedelta(obj):
 
 @mqtt_routes.post("/publish_schedule_data", dependencies=[Depends(mw_user_client)])
 async def publish_schedule_data(request: Request, message_data: MqttPublishDeviceScheduleList):
-    # try:
+    try:
         user_data=request.state.user_data
         condition=f"device='{message_data.device}' AND do_no ={message_data.do_no} AND client_id = {user_data['client_id']}"
-        select="schedule_id, client_id, device, do_type, datalog_sec, do_no, one_on_time, one_off_time, two_on_time, two_off_time, created_by, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
+        select="schedule_id, client_id, device, do_type, datalog_sec, do_no, one_on_time, one_off_time, two_on_time, two_off_time,days, created_by, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
         data = select_one_data("device_schedule",select, condition,order_by="schedule_id DESC")
         print(">>>>>>>>>>>>>>>>>",data)
         resdata = successResponse(data, message="Shedule successfully")
         print('????????????????????',json.dumps(resdata,default=convert_timedelta))
         return Response(content=json.dumps(resdata,default=convert_timedelta), media_type="application/json", status_code=200)
-    # except ValueError as ve:
-    #     # If there's a ValueError, return a 400 Bad Request with the error message
-    #     raise HTTPException(status_code=400, detail=str(ve))
-    # except Exception as e:
-    #     # For any other unexpected error, return a 500 Internal Server Error
-    #     raise HTTPException(status_code=500, detail="Internal server error")
+    except ValueError as ve:
+        # If there's a ValueError, return a 400 Bad Request with the error message
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        # For any other unexpected error, return a 500 Internal Server Error
+        raise HTTPException(status_code=500, detail="Internal server error")

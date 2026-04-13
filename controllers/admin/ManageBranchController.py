@@ -1,21 +1,53 @@
-from db_model.MASTER_MODEL import select_data, insert_data, update_data, delete_data
+from db_model.MASTER_MODEL import select_data, insert_data, update_data, delete_data, select_one_data, custom_select_sql_query
 from utils.date_time_format import get_current_datetime
 
-def add_branch(branch):
+
+def get_available_branch_numbers(params):
+    """Get unique branch_number values from md_device that are not yet assigned to a branch"""
     try:
-        current_datetime = get_current_datetime()
-        columns = "client_id, organization_id, project_id, branch_name, created_at"
-        value = f"{branch.client_id}, {branch.organization_id}, {branch.project_id}, '{branch.branch_name}', '{current_datetime}'"
-        branch_id = insert_data("manage_branch", columns, value)
-        if branch_id is None:
-            raise ValueError("Branch creation failed")
-        return {"branch_id": branch_id, "branch_name": branch.branch_name}
+        sql = f"""
+            SELECT DISTINCT d.branch_number 
+            FROM md_device d 
+            WHERE d.client_id = {params.client_id} 
+              AND d.branch_number IS NOT NULL 
+              AND d.branch_number != '' 
+              AND d.branch_number NOT IN (
+                  SELECT b.branch_number FROM manage_branch b 
+                  WHERE b.client_id = {params.client_id} 
+                    AND b.branch_number IS NOT NULL 
+                    AND b.branch_number != ''
+              )
+            ORDER BY d.branch_number
+        """
+        data = custom_select_sql_query(sql, 1)
+        return data if data else []
     except Exception as e:
         raise e
 
-def list_branch(params):
+
+def add_branch(branch):
+    """Add branch = UPDATE existing manage_branch record using WHERE branch_number"""
     try:
-        select = "b.branch_id, b.client_id, b.organization_id, b.project_id, b.branch_name, DATE_FORMAT(b.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, o.organization_name, p.project_name, (SELECT COUNT(*) FROM manage_branch_device bd WHERE bd.branch_id = b.branch_id) AS device_count"
+        condition = f"branch_number = '{branch.branch_number}' AND client_id = {branch.client_id}"
+        columns = {
+            "organization_id": branch.organization_id,
+            "project_id": branch.project_id,
+            "branch_name": branch.branch_name
+        }
+        data = update_data("manage_branch", columns, condition)
+        return {"success": True, "branch_name": branch.branch_name, "branch_number": branch.branch_number}
+    except Exception as e:
+        raise e
+
+
+def list_branch(params):
+    """List branches with device count and device details from md_device via branch_number"""
+    try:
+        select = """b.branch_id, b.client_id, b.organization_id, b.project_id, 
+                    b.branch_name, b.branch_number,
+                    DATE_FORMAT(b.created_at, '%%Y-%%m-%%d %%H:%%i:%%s') AS created_at, 
+                    o.organization_name, p.project_name,
+                    (SELECT COUNT(*) FROM md_device d WHERE d.branch_number = b.branch_number AND d.client_id = b.client_id) AS device_count"""
         table = "manage_branch as b LEFT JOIN md_organization as o ON b.organization_id = o.organization_id LEFT JOIN md_project as p ON b.project_id = p.project_id"
         
         condition = f"b.client_id = {params.client_id}"
@@ -25,13 +57,33 @@ def list_branch(params):
             condition += f" AND b.project_id = {params.project_id}"
             
         data = select_data(table, select, condition)
+        
+        # For each branch, fetch devices from md_device by branch_number
+        if data:
+            for branch in data:
+                branch_number = branch.get('branch_number')
+                if branch_number:
+                    dev_sql = f"""SELECT device_id, device, device_name, device_type, device_status, model, 
+                                        branch_number, gateway_id, lat, lon, imei_no
+                                 FROM md_device 
+                                 WHERE branch_number = '{branch_number}' 
+                                   AND client_id = {params.client_id}"""
+                    try:
+                        devices = custom_select_sql_query(dev_sql, 1)
+                        branch['devices'] = devices if devices else []
+                    except Exception:
+                        branch['devices'] = []
+                else:
+                    branch['devices'] = []
         return data
     except Exception as e:
         raise e
 
+
 def edit_branch(branch):
+    """Edit branch - uses branch_number in WHERE clause, branch_number itself is NOT editable"""
     try:
-        condition = f"branch_id = {branch.branch_id} AND client_id = {branch.client_id}"
+        condition = f"branch_number = '{branch.branch_number}' AND client_id = {branch.client_id}"
         columns = {
             "organization_id": branch.organization_id,
             "project_id": branch.project_id,
@@ -42,60 +94,11 @@ def edit_branch(branch):
     except Exception as e:
         raise e
 
+
 def delete_branch(branch):
     try:
-        # First delete mapped branch devices
-        device_condition = f"branch_id = {branch.branch_id}"
-        delete_data("manage_branch_device", device_condition)
-        
-        # Then delete the branch
         condition = f"branch_id = {branch.branch_id}"
         data = delete_data("manage_branch", condition)
-        return {"success": bool(data)}
-    except Exception as e:
-        raise e
-
-
-# Branch Device Assignment
-def add_branch_device(params):
-    try:
-        current_datetime = get_current_datetime()
-        # Find device details to insert the device UID
-        from db_model.MASTER_MODEL import select_one_data
-        
-        inserted_count = 0
-        for device_id in params.device_ids:
-            device_info = select_one_data("md_device", "device", f"device_id = {device_id} AND client_id = {params.client_id}")
-            if device_info:
-                device_uid = device_info['device']
-                
-                # Check if already assigned to avoid duplicates
-                check_existing = select_data("manage_branch_device", "branch_device_id", f"branch_id = {params.branch_id} AND device_id = {device_id}")
-                
-                if not check_existing:
-                    columns = "client_id, branch_id, device_id, device, created_at"
-                    value = f"{params.client_id}, {params.branch_id}, {device_id}, '{device_uid}', '{current_datetime}'"
-                    insert_data("manage_branch_device", columns, value)
-                    inserted_count += 1
-                
-        return {"inserted_count": inserted_count}
-    except Exception as e:
-        raise e
-
-def list_branch_device(params):
-    try:
-        select = "bd.branch_device_id, bd.branch_id, bd.device_id, bd.device, DATE_FORMAT(bd.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, d.device_name, d.model, 'online' AS status"
-        table = "manage_branch_device as bd LEFT JOIN md_device as d ON bd.device_id = d.device_id"
-        condition = f"bd.branch_id = {params.branch_id} AND bd.client_id = {params.client_id}"
-        data = select_data(table, select, condition)
-        return data
-    except Exception as e:
-        raise e
-
-def delete_branch_device(params):
-    try:
-        condition = f"branch_device_id = {params.branch_device_id} AND branch_id = {params.branch_id}"
-        data = delete_data("manage_branch_device", condition)
         return {"success": bool(data)}
     except Exception as e:
         raise e
@@ -105,10 +108,8 @@ def delete_branch_device(params):
 def get_branch_config(params):
     """Returns branch info + all devices with their valve scheduling states"""
     try:
-        from db_model.MASTER_MODEL import select_one_data, custom_select_sql_query
-
         # 1) Get branch info
-        branch_select = "b.branch_id, b.branch_name, b.organization_id, b.project_id, o.organization_name, p.project_name"
+        branch_select = "b.branch_id, b.branch_name, b.branch_number, b.organization_id, b.project_id, o.organization_name, p.project_name"
         branch_table = "manage_branch as b LEFT JOIN md_organization as o ON b.organization_id = o.organization_id LEFT JOIN md_project as p ON b.project_id = p.project_id"
         branch_condition = f"b.branch_id = {params.branch_id} AND b.client_id = {params.client_id}"
         branch_rows = select_data(branch_table, branch_select, branch_condition)
@@ -116,12 +117,17 @@ def get_branch_config(params):
             raise ValueError("Branch not found")
         branch_info = branch_rows[0]
 
-        # 2) Get all devices in this branch
-        dev_select = "bd.branch_device_id, bd.device_id, bd.device, d.device_name, d.model, d.device_status"
-        dev_table = "manage_branch_device as bd LEFT JOIN md_device as d ON bd.device_id = d.device_id"
-        dev_condition = f"bd.branch_id = {params.branch_id} AND bd.client_id = {params.client_id}"
-        devices = select_data(dev_table, dev_select, dev_condition)
-        if devices is None:
+        # 2) Get all devices via branch_number from md_device
+        branch_number = branch_info.get('branch_number', '')
+        if branch_number:
+            dev_sql = f"""SELECT device_id, device, device_name, model, device_status, device_type, gateway_id
+                         FROM md_device 
+                         WHERE branch_number = '{branch_number}' 
+                           AND client_id = {params.client_id}"""
+            devices = custom_select_sql_query(dev_sql, 1)
+            if devices is None:
+                devices = []
+        else:
             devices = []
 
         # 3) For each device, get valve scheduling for valves 1-6
@@ -172,7 +178,6 @@ def get_branch_config(params):
                     valves[f"valve_{valve_no}"] = {"has_schedule": False, "do_type": None}
 
             device_list.append({
-                "branch_device_id": dev.get('branch_device_id'),
                 "device_id": device_id,
                 "device": device_uid,
                 "device_name": dev.get('device_name', device_uid),
@@ -197,30 +202,31 @@ def get_branch_config(params):
 
 # ─── Helper: get all devices in a branch ───
 def _get_branch_devices(branch_id, client_id):
-    """Returns list of {device_id, device, gateway_id} for all devices in a branch"""
-    from db_model.MASTER_MODEL import select_one_data
-    dev_select = "bd.device_id, bd.device"
-    dev_table = "manage_branch_device as bd"
-    dev_condition = f"bd.branch_id = {branch_id} AND bd.client_id = {client_id}"
-    devices = select_data(dev_table, dev_select, dev_condition)
-    if devices is None:
-        devices = []
-
-    result = []
-    for dev in devices:
-        # Get gateway_id for each device
-        try:
-            gw = select_one_data("md_device", "gateway_id", f"device_id = {dev['device_id']} AND client_id = {client_id}", order_by="device_id DESC")
-            gateway_id = gw['gateway_id'] if gw else None
-        except Exception:
-            gateway_id = None
-
-        result.append({
-            "device_id": dev['device_id'],
-            "device": dev['device'],
-            "gateway_id": gateway_id
-        })
-    return result
+    """Returns list of {device_id, device, gateway_id} for all devices in a branch via branch_number"""
+    try:
+        branch_info = select_one_data("manage_branch", "branch_number", f"branch_id = {branch_id} AND client_id = {client_id}")
+        if not branch_info or not branch_info.get('branch_number'):
+            return []
+        
+        branch_number = branch_info['branch_number']
+        dev_sql = f"""SELECT device_id, device, gateway_id 
+                     FROM md_device 
+                     WHERE branch_number = '{branch_number}' 
+                       AND client_id = {client_id}"""
+        devices = custom_select_sql_query(dev_sql, 1)
+        if devices is None:
+            return []
+        
+        result = []
+        for dev in devices:
+            result.append({
+                "device_id": dev['device_id'],
+                "device": dev['device'],
+                "gateway_id": dev.get('gateway_id')
+            })
+        return result
+    except Exception:
+        return []
 
 
 # ─── Branch-Level Switch (all devices) ───
@@ -230,7 +236,6 @@ def switch_branch_all(params):
         devices = _get_branch_devices(params.branch_id, params.client_id)
         if not devices:
             raise ValueError("No devices found in this branch")
-
         return {
             "devices": devices,
             "do_no": params.do_no,
@@ -245,11 +250,9 @@ def switch_branch_all(params):
 def schedule_branch_all(params):
     """Save schedule to ALL devices in the branch"""
     try:
-        from db_model.MASTER_MODEL import select_one_data
         devices = _get_branch_devices(params.branch_id, params.client_id)
         if not devices:
             raise ValueError("No devices found in this branch")
-
         return {
             "devices": devices,
             "do_type": params.do_type,
@@ -273,7 +276,6 @@ def reset_branch_schedule_all(params):
         devices = _get_branch_devices(params.branch_id, params.client_id)
         if not devices:
             raise ValueError("No devices found in this branch")
-
         return {
             "devices": devices,
             "do_no": params.do_no,
@@ -281,4 +283,3 @@ def reset_branch_schedule_all(params):
         }
     except Exception as e:
         raise e
-

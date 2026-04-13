@@ -2,8 +2,7 @@ from fastapi import APIRouter, HTTPException, Response, Depends, Request
 import json
 from controllers.admin import ManageBranchController
 from models.manage_branch_model import (
-    AddBranch, EditBranch, DeleteBranch, ListBranch,
-    BranchDeviceAdd, BranchDeviceDelete, BranchDeviceList,
+    AddBranch, EditBranch, DeleteBranch, ListBranch, AvailableBranchNumbers,
     BranchConfigGet, BranchSwitchAll, BranchScheduleSaveAll, BranchScheduleResetAll
 )
 from middleware.MyMiddleware import mw_client, mw_user_client
@@ -12,13 +11,26 @@ from Library.DecimalEncoder import DecimalEncoder
 
 manage_branch_routes = APIRouter()
 
+# --- Available Branch Numbers (from md_device) ---
+
+@manage_branch_routes.post("/manage_branch/available_branch_numbers", dependencies=[Depends(mw_user_client)])
+async def available_branch_numbers(request: Request, params: AvailableBranchNumbers):
+    try:
+        data = ManageBranchController.get_available_branch_numbers(params)
+        resdata = successResponse(data, message="Available branch numbers")
+        return Response(content=json.dumps(resdata, cls=DecimalEncoder), media_type="application/json", status_code=200)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 # --- Branch CRUD ---
 
 @manage_branch_routes.post("/manage_branch/add", dependencies=[Depends(mw_client)])
 async def add_branch(request: Request, branch: AddBranch):
     try:
-        data = ManageBranchController.add_branch(branch)
-        resdata = successResponse(data, message="Branch created successfully")
+        data = ManageBranchController.edit_branch(branch)
+        resdata = successResponse(data, message="Branch updated successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -59,42 +71,6 @@ async def delete_branch(request: Request, branch: DeleteBranch):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# --- Branch Device Assignment ---
-
-@manage_branch_routes.post("/manage_branch/add_device", dependencies=[Depends(mw_client)])
-async def add_branch_device(request: Request, params: BranchDeviceAdd):
-    try:
-        data = ManageBranchController.add_branch_device(params)
-        resdata = successResponse(data, message="Devices added successfully")
-        return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-@manage_branch_routes.post("/manage_branch/device_list", dependencies=[Depends(mw_user_client)])
-async def list_branch_device(request: Request, params: BranchDeviceList):
-    try:
-        data = ManageBranchController.list_branch_device(params)
-        resdata = successResponse(data, message="List of branch devices")
-        return Response(content=json.dumps(resdata, cls=DecimalEncoder), media_type="application/json", status_code=200)
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-@manage_branch_routes.post("/manage_branch/delete_device", dependencies=[Depends(mw_client)])
-async def delete_branch_device(request: Request, params: BranchDeviceDelete):
-    try:
-        data = ManageBranchController.delete_branch_device(params)
-        resdata = successResponse(data, message="Device removed from branch")
-        return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
 # --- Branch Config (Full Control Panel) ---
 
 @manage_branch_routes.post("/manage_branch/get_config", dependencies=[Depends(mw_user_client)])
@@ -125,8 +101,7 @@ async def switch_branch_all(request: Request, params: BranchSwitchAll):
         for dev in devices:
             try:
                 if dev['gateway_id']:
-                    # Build a simple single-valve DO state array (all OFF except target valve)
-                    do_states = [0] * 7  # 7 DOs (index 0-6)
+                    do_states = [0] * 7
                     do_states[params.do_no - 1] = params.value
                     frame = encode_do_to_frame(dev['device'], do_states)
                     mqtt_client.publish(f"/ST/{dev['gateway_id']}", frame, qos=0)
@@ -160,7 +135,6 @@ async def schedule_save_all(request: Request, params: BranchScheduleSaveAll):
         result = ManageBranchController.schedule_branch_all(params)
         devices = result['devices']
 
-        # Parse times
         on_parts = params.one_on_time.split(':')
         off_parts = params.one_off_time.split(':')
         one_on_hr = int(on_parts[0])
@@ -176,7 +150,6 @@ async def schedule_save_all(request: Request, params: BranchScheduleSaveAll):
                 device_uid = dev['device']
                 device_id = dev['device_id']
 
-                # Build MQTT frame
                 device_id_int = int(device_uid)
                 rxUID_hex = f"{device_id_int:04X}"
                 channel = params.do_no - 1
@@ -197,7 +170,6 @@ async def schedule_save_all(request: Request, params: BranchScheduleSaveAll):
                 if dev['gateway_id']:
                     mqtt_client.publish(f"/ST/{dev['gateway_id']}", pubdata, qos=1)
 
-                # Save to DB using a simple object-like structure
                 class ScheduleData:
                     pass
                 sd = ScheduleData()

@@ -1,9 +1,10 @@
+from Library import WsConnectionManagerManyDeviceTypes
 import paho.mqtt.client as mqtt
 from controllers.device_to_server import WaterController
 from routes import mqtt_routes
 from Library.DotDictLibrary import DotDictLibrary
 from utils.date_time_format import get_current_datetime
-from models.mqtt_model import MqttPublishDeviceSchedule
+from models.mqtt_model import MqttPublishDeviceSchedule, MqttPublishDeviceSchedule
 from models.device_data_model import DeviceAdd, WaterDeviceData
 from controllers.admin import DeviceController
 import json
@@ -48,55 +49,117 @@ class MqttLibraryClass:
             # reqdata=DotDictLibrary(json.loads(msg.payload))
             # if parts[0] == "ums":
             if parts[1] == "ARVIND":
-                # print(json.loads(msg.payload.decode('utf-8')))
                 reqdata=DotDictLibrary(json.loads(msg.payload.decode('utf-8')))
-                # device_id = reqdata.uid + reqdata.nid
                 device_id = reqdata.nid
-                print(">>>>>>>>",device_id)
                 gateway_id = reqdata.uid + "0000"
                 imei_id = reqdata.imei
                 cid_id = 1
                 date_time = reqdata.dt
-                
                 # Parse the date string; notice that the year is 2 digits (%y)
                 device_dt = datetime.strptime(date_time, "%d-%m-%y %H:%M:%S")
-
-                # Format it to "%Y-%m-%d"
-                formatted_date = device_dt.strftime("%Y.%m.%d")
-                formatted_itme = device_dt.strftime("%H:%M:%S")
                 
-                fwver = reqdata.fwver
                 
-                # node_msg = reqdata.msg
-
-                # encode_data = parse_lora_packet(node_msg)
-                
-                # bits = encode_data['DO_status']
-                # bit_string = ''.join(map(str, bits))
-                # if 'DeviceID' in encode_data and encode_data['DeviceID'] is not None:
-                bit_string = ''.join(map(str, reqdata.sw))
-
-                print("[mqtt res]", bit_string)
-                
-                deviceData =  WaterDeviceData(
-                    UID =  device_id,
-                    DT = formatted_date,
-                    TIME = formatted_itme,
-                    TW = 0.0,
-                    A1 = 0.0,
-                    A2 = 0.0,
-                    TOT1 = 0,
-                    TOT2 = 0,
-                    DO = bit_string,
-                    BAT_V = reqdata.batV,
-                    BRANCH_NUMBER = reqdata.groupID
-                )
-
-                asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id))
-                asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
+                if reqdata.pkt == "RM":     #get Sheduling     
+                    settingsData = MqttPublishDeviceSchedule(
+                                        device=str(reqdata.nid),
+                                        do_type=int(0 if reqdata.mode == 4 else 1 if reqdata.mode == 5 else 0),  # 4 auto, 5 manual
+                                        do_no=int(reqdata.ch + 1)
+                                    )
+                    user_data = {}  # Create an empty dictionary
+                    user_data['client_id'] = 1  # Assign 123 to 'client_id'
+                    user_data['user_id'] = 0  # Assign 123 to 'client_id'
                     
+                    asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData))
                     
+                elif reqdata.pkt == "RT":       #setting type
+                    print("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRT")
+
+
+                    days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    
+                    active_days = [
+                        days[i] for i in range(7)
+                        if reqdata.daysMask & (1 << i)
+                    ]
                     
+                    ddyas = ",".join(active_days)
+                    
+                    settingsData = MqttPublishDeviceSchedule(
+                                        device=str(reqdata.nid),
+                                        do_type=int(0 if reqdata.mode == 4 else 1 if reqdata.mode == 5 else 0),  # 4 auto, 5 manual
+                                        do_no=int(reqdata.ch + 1),
+
+                                        one_on_time = f"{reqdata.onHr:02d}:{reqdata.onMin:02d}:00",
+                                        one_off_time = f"{reqdata.offHr:02d}:{reqdata.offMin:02d}:00",
+
+                                        days =ddyas # New field for days of the week
+                                    )
+                    user_data = {}  # Create an empty dictionary
+                    user_data['client_id'] = 1  # Assign 123 to 'client_id'
+                    user_data['user_id'] = 0  # Assign 123 to 'client_id'
+                    
+                    asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData))
+
+                    
+                elif reqdata.pkt == "AD":
+                    formatted_date = device_dt.strftime("%Y.%m.%d")
+                    formatted_itme = device_dt.strftime("%H:%M:%S")
+                    deviceData =  WaterDeviceData(
+                        UID =  device_id,
+                        DT = formatted_date,
+                        TIME = formatted_itme,
+                        TW = 0.0,
+                        A1 = reqdata.ai1,
+                        A2 = 0.0,
+                        TOT1 = 0,
+                        TOT2 = 0,
+                        DO = '00000000',
+                        # BAT_V = reqdata.batV
+                        BAT_V = 0.0
+                    )
+
+                    asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id))
+                    asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
+                else:
+                
+                    # Parse the date string; notice that the year is 2 digits (%y)
+                    device_dt = datetime.strptime(date_time, "%d-%m-%y %H:%M:%S")
+
+                    # Format it to "%Y-%m-%d"
+                    formatted_date = device_dt.strftime("%Y.%m.%d")
+                    formatted_itme = device_dt.strftime("%H:%M:%S")
+                    
+                    fwver = reqdata.fwver
+                    
+                    # node_msg = reqdata.msg
+
+                    # encode_data = parse_lora_packet(node_msg)
+                    
+                    # bits = encode_data['DO_status']
+                    # bit_string = ''.join(map(str, bits))
+                    # if 'DeviceID' in encode_data and encode_data['DeviceID'] is not None:
+                    bit_string = ''.join(map(str, reqdata.sw))
+
+                    print("[mqtt res]", bit_string)
+                    
+                    deviceData =  WaterDeviceData(
+                        UID =  device_id,
+                        DT = formatted_date,
+                        TIME = formatted_itme,
+                        TW = 0.0,
+                        A1 = 0.0,
+                        A2 = 0.0,
+                        TOT1 = 0,
+                        TOT2 = 0,
+                        DO = bit_string,
+                        BAT_V = reqdata.batV,
+                        # BRANCH_NUMBER = reqdata.groupID
+                    )
+
+                    asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id))
+                    asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
+                    
+       
             elif parts[1] == "settings":
                 # if parts[2] == "AA":
                 reqdata=DotDictLibrary(json.loads(msg.payload.decode('utf-8')))
@@ -117,27 +180,7 @@ class MqttLibraryClass:
                 user_data['user_id'] = 0  # Assign 123 to 'client_id'
                 print("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",settingsData,user_data['client_id'])
                 asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData)) 
-            # elif parts[1] == "registration":
-                # if parts[2] == "AA":
-                #     reqdata=DotDictLibrary(json.loads(msg.payload.decode('utf-8')))
-                    
-                #     paramsdata = [
-                #             DeviceAdd(
-                #                 client_id=1,
-                #                 device=str(reqdata.UID),
-                #                 device_name=str(reqdata.D_NAME),
-                #                 do_channel=1,
-                #                 model='TSWF01',
-                #                 lat=str(reqdata.LAT),
-                #                 lon=str(reqdata.LONG),
-                #                 imei_no=str(reqdata.IMEI),
-                #                 last_maintenance=datetime.now().strftime("%Y-%m-%d")  # Get current date
-                #             )
-                #         ]
-                        
-                #     asyncio.run(DeviceController.add_device(paramsdata)) 
-
-                asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData)) 
+                # asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData)) 
                 
         except Exception as e:
             print("Error in process_message_thread:",e)

@@ -38,19 +38,20 @@ class MqttPublishDeviceSchedule(BaseModel):
     organization_id: Optional[int] = None
     device_id: Optional[int] = None
     device: str
-    do_type: int
+    do_type: int    
     do_no: int
-    one_on_time: time
-    one_off_time: time
-    two_on_time: time
-    two_off_time: time
-    datalog_sec: int
-    days: str
+    one_on_time: Optional[time] = None
+    one_off_time: Optional[time] = None
+    two_on_time: Optional[time] = None
+    two_off_time: Optional[time] = None
+    datalog_sec: Optional[int] = None
+    days: Optional[str] = None  # New field for days of the week
     
 class MqttReadSchedule(BaseModel):
     device: str
     do_no: int
     request_type: int
+    device_id: str
 
 class MqttReadLastData(BaseModel):
     device: str

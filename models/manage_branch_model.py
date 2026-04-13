@@ -7,10 +7,12 @@ class AddBranch(BaseModel):
     organization_id: int
     project_id: int
     branch_name: str
+    branch_number: str
 
 class EditBranch(BaseModel):
     client_id: int
     branch_id: int
+    branch_number: str
     organization_id: int
     project_id: int
     branch_name: str
@@ -23,19 +25,8 @@ class ListBranch(BaseModel):
     organization_id: Optional[int] = None
     project_id: Optional[int] = None
 
-# Branch Device Models
-class BranchDeviceAdd(BaseModel):
+class AvailableBranchNumbers(BaseModel):
     client_id: int
-    branch_id: int
-    device_ids: List[int]
-
-class BranchDeviceDelete(BaseModel):
-    branch_device_id: int
-    branch_id: int
-
-class BranchDeviceList(BaseModel):
-    client_id: int
-    branch_id: int
 
 class BranchConfigGet(BaseModel):
     client_id: int
