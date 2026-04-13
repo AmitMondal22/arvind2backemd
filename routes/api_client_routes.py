@@ -83,37 +83,6 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, device_id: st
         manager.disconnect(websocket,client_id, device_id, device)
         print(f"Connection with user {client_id}-{device_id}-{device} closed.")
 
-
-# ================================================================
-# ================================================================
-class SendEnergySocket:
-    
-    async def send_last_weather_data(client_id, device_id, device):
-        try:
-            # Lazy import inside the function
-            # from Library import WsConnectionManager
-            # manager = WsConnectionManager.WsConnectionManager()
-            
-            select="weather_data_id, client_id, device_id,tw, temperature, rainfall, rainfall_cumulative, atm_pressure, solar_radiation, humidity, wind_speed, wind_direction, runhr, date, time, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at"
-            condition = f"device_id = '{device_id}' AND device ='{device}' AND client_id = '{client_id}'"
-            order_by="weather_data_id DESC"
-                
-            lastdata = select_one_data("td_weather_data", select, condition, order_by)
-           
-            await manager.send_personal_message(client_id, device_id, device, json.dumps(lastdata, cls=DecimalEncoder))
-            
-            # await manager.send_personal_message(client_id, device_id, device, json.dumps("hello134"))
-            
-            
-            # await manager.send_personal_message(1, 1, "aa", json.dumps("hello world"))
-            print("lastdata last energy data>>>>>>>>>>/////////",lastdata)
-            return lastdata
-        except Exception as e:
-            raise ValueError("Could not fetch data")
-# ================================================================
-# ================================================================
-  
-
   
 # ==========================================================================
 # ==========================================================================

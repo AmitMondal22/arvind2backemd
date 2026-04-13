@@ -83,16 +83,17 @@ class MqttLibraryClass:
                     DT = formatted_date,
                     TIME = formatted_itme,
                     TW = 0.0,
-                    A1 = reqdata.p1,
-                    A2 = reqdata.p2,
+                    A1 = 0.0,
+                    A2 = 0.0,
                     TOT1 = 0,
                     TOT2 = 0,
                     DO = bit_string,
                     BAT_V = reqdata.batV,
+                    BRANCH_NUMBER = reqdata.groupID
                 )
 
                 asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id))
-                asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id))
+                asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
                     
                     
                     

@@ -19,6 +19,7 @@ class WaterDeviceData(BaseModel):
     # IO_ID: Optional[str] = ''
     DO: Optional[str] = ''
     BAT_V: Optional[float] = 0.00
+    BRANCH_NUMBER: str = "0"
     
     
     
