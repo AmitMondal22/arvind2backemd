@@ -7,7 +7,7 @@ from controllers.settings import ClientSettingsController
 
 from models.organization_model import AddOrganization, EditOrganizationData, DeleteOrganization,ListOrganization
 from models.project_model import AddProject,EditProjectData,DeleteProject,ProjectDeviceAdd,ProjectDeviceDelete
-from models.manage_user_model import AddUser, EditUser,DeleteUser,UserDeviceAdd,UserDeviceEdit,UserDeviceDelete,ListUsers,UserInfo,ClientId,DeviceInfo,DeviceListOrg,DeviceListOrgProject,DeviceStatusUpdate
+from models.manage_user_model import AddUser, EditUser,DeleteUser,UserDeviceAdd,UserDeviceEdit,UserDeviceDelete,ListUsers,UserInfo,ClientId,DeviceInfo,DeviceListOrg,DeviceListOrgProject,DeviceStatusUpdate, DeviceListOrgProjectType
 from models.device_data_model import WeatherFlowData,AddAlert,DeviceAdd,DeviceEdit,EditAlert,DeleteAlert,TemperatureUsed, VoltageData,OrganizationSettings,OrganizationSettingsList,EditOrganization, ChartData
 from models.client_settings import ClientScreenSettings, ClientScreenSettingsEdit
 
@@ -122,7 +122,7 @@ class SendEnergySocket:
 @api_client_routes.post("/manage_organization/add", dependencies=[Depends(mw_client)])
 async def add_organization(request: Request,organization:AddOrganization):
     try:
-        data = ClientController.add_organization(organization)   
+        data = ClientController.add_organization(organization)
         resdata = successResponse(data, message="User registered successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
     except ValueError as ve:
@@ -497,6 +497,31 @@ async def list_device(request: Request,params:DeviceListOrgProject):
         raise HTTPException(status_code=500, detail="Internal server error")
     
     
+    
+@api_client_routes.post("/project/devices/list/type", dependencies=[Depends(mw_user_client)])
+async def list_device(request: Request,params:DeviceListOrgProjectType):
+# async def list_device(request: Request):
+    try:
+        user_credentials = request.state.user_data
+        client_id=user_credentials['client_id']
+        project_id=params.project_id
+        if user_credentials["user_type"] == "U":
+            user_id=user_credentials["user_id"]
+            organization_id=user_credentials["organization_id"]
+            data= await DeviceController.project_user_device_listType(client_id, user_id, organization_id,project_id,params.device_type)
+        else:
+             data= await DeviceController.project_list_device_type(client_id, params.organization_id,project_id,params.device_type)
+            # data = await DeviceController.list_device(client_id)
+        resdata = successResponse(data, message="List of devices")
+        return Response(content=json.dumps(resdata,cls=DecimalEncoder), media_type="application/json", status_code=200)
+    except ValueError as ve:
+        # If there's a ValueError, return a 400 Bad Request with the error message
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        # For any other unexpected error, return a 500 Internal Server Error
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
+    
 @api_client_routes.post("/devices_list", dependencies=[Depends(mw_user_client)])
 async def list_device(request: Request):
 # async def list_device(request: Request):
@@ -556,14 +581,15 @@ async def list_device(request: Request, params: DeviceStatusUpdate):
 # @api_client_routes.post("/manage/devices/add")
 @api_client_routes.post("/manage/devices/add", dependencies=[Depends(mw_client)])
 async def add_device(request: Request,params:List[DeviceAdd]):
-    try:
+    # try:
         data = await DeviceController.add_device(params)
         resdata = successResponse(data, message="Device added successfully")
+        print(">>>>>>>>>>>>>>>>>>>>>",resdata)
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
+    # except ValueError as ve:
+    #     raise HTTPException(status_code=400, detail=str(ve))
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail="Internal server error")
     
     
 @api_client_routes.post("/manage/devices/edit", dependencies=[Depends(mw_client)])

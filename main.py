@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from json import JSONEncoder
 from datetime import date, datetime, timedelta
-from routes import api_client_routes, devices_routes, user_routes,auth_routes,mqtt_routes,ws_routes,api_user_routes,api_common_routes,webhooks_routes, management_gateway_routes
+from routes import api_client_routes, devices_routes, user_routes,auth_routes,mqtt_routes,ws_routes,api_user_routes,api_common_routes,webhooks_routes, management_gateway_routes, manage_branch_routes
 
 from decimal import Decimal
 import uvicorn
@@ -78,6 +78,7 @@ app.include_router(ws_routes.ws_routes, prefix="/api/water_ms_routes", tags=["WS
 app.include_router(api_common_routes.api_common_routes, prefix="/api/common", tags=["common"])
 app.include_router(webhooks_routes.webhooks_routes, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(management_gateway_routes.management_gateway_routes, prefix="/api/management_gateway", tags=["management_gateway"])
+app.include_router(manage_branch_routes.manage_branch_routes, prefix="/api/client", tags=["manage_branch"])
 
 
 

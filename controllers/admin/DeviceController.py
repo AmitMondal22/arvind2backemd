@@ -77,6 +77,73 @@ async def project_user_device_list(client_id, user_id, organization_id,project_i
         return find_devices
     except Exception as e:
         raise ValueError("Could not fetch data")
+    
+    
+async def project_user_device_listType(client_id, user_id, organization_id,project_id,type):
+    try:
+        select = "d.device_id, d.device, d.device_name,d.device_status, d.model, wd.created_at"
+    
+        condition = (
+            f"d.device_id = mud.device_id "
+            f"AND e.device_id = d.device_id "
+            f"AND d.client_id = mud.client_id "
+            f"AND mud.client_id = {client_id} "
+            f"AND mud.user_id = {user_id} "
+            f"AND mud.organization_id = {organization_id} "
+            f"AND e.project_id = {project_id}"
+            f"AND d.device_type = '{type}'"
+        )
+        
+        # Define the tables with a subquery for the latest td_water_data
+        tables = (
+            "md_device AS d "
+            "INNER JOIN md_manage_user_device AS mud ON d.device_id = mud.device_id AND d.client_id = mud.client_id "
+            "INNER JOIN md_manage_project_device AS e ON e.device_id = d.device_id "
+            "LEFT JOIN ("
+            "    SELECT device_id, created_at "
+            "    FROM td_water_data "
+            "    WHERE (device_id, created_at) IN ("
+            "        SELECT device_id, MAX(created_at) "
+            "        FROM td_water_data "
+            "        GROUP BY device_id"
+            "    )"
+            ") AS wd ON d.device_id = wd.device_id"
+        )
+        
+        find_devices = select_data(tables, select, condition, order_by="d.device ASC")
+        print("find_devices>>>>>>>>>>>>>>>>>", find_devices)
+        print("find_devices>>>>>>>>>>>>>>>>>",find_devices)
+        return find_devices
+    except Exception as e:
+        raise ValueError("Could not fetch data")
+    
+async def project_list_device_type(client_id, organization_id,project_id,type):
+    try:
+        select = "d.device_id, d.device,d.device_status, d.device_name, d.model, wd.created_at"
+    
+        # Define the tables with the subquery for the latest td_water_data
+        tables = """md_device AS d
+                    INNER JOIN md_manage_user_device AS mud ON d.device_id = mud.device_id AND d.client_id = mud.client_id
+                    INNER JOIN md_manage_project_device AS e ON e.device_id = d.device_id
+                    LEFT JOIN (
+                        SELECT device_id, created_at
+                        FROM td_water_data
+                        WHERE (device_id, created_at) IN (
+                            SELECT device_id, MAX(created_at)
+                            FROM td_water_data
+                            GROUP BY device_id
+                        )
+                    ) AS wd ON d.device_id = wd.device_id"""
+        
+        # Define the condition
+        condition = f"mud.client_id = {client_id} AND mud.organization_id = {organization_id} AND e.project_id = {project_id} AND d.device_type = '{type}'"
+        
+        # Execute the query using the select_data function
+        find_devices = select_data(tables, select, condition, order_by="d.device ASC")
+        print("find_devices>>>>>>>>>>>>>>>>>",find_devices)
+        return find_devices
+    except Exception as e:
+        raise e
 
 async def project_list_device(client_id, organization_id,project_id):
     try:
@@ -125,7 +192,7 @@ async def device_info(params,userdata):
 
 
 async def add_device(params):
-    try:
+    # try:
         
         
         column="client_id, device, device_name, do_channel, model, lat, lon, imei_no, last_maintenance, created_at"
@@ -151,8 +218,8 @@ async def add_device(params):
         
         await subscribe_topics()
         return batch_dataid
-    except Exception as e:
-        raise e
+    # except Exception as e:
+    #     raise e
     
 
 async def edit_device(params):

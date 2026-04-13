@@ -83,6 +83,11 @@ class DeviceListOrg(BaseModel):
 class DeviceListOrgProject(BaseModel):
     organization_id: int
     project_id: int
+
+class DeviceListOrgProjectType(BaseModel):
+    organization_id: int
+    project_id: int
+    device_type: str
     
 
 class UserDeviceList(BaseModel):
