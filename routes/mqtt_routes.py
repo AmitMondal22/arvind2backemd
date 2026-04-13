@@ -15,7 +15,7 @@ from controllers.device_to_server import WaterController
 
 from utils.response import errorResponse, successResponse
 import json
-import time
+from datetime import datetime, time
 
 # from models.mqtt_model import MqttEnergyDeviceData
 
@@ -241,7 +241,7 @@ def days_to_mask(days_str: str) -> int:
 
 @mqtt_routes.post("/publish_schedule", dependencies=[Depends(mw_user_client)])
 async def publish_message(request: Request, message_data: MqttPublishDeviceSchedule):
-    try:
+    # try:
         user_data = request.state.user_data
 
         # Time split
@@ -326,12 +326,22 @@ async def publish_message(request: Request, message_data: MqttPublishDeviceSched
             status_code=200
         )
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=str(e))
 
 
 def remove_none_fields(data: dict):
     return {k: v for k, v in data.items() if v is not None}
+
+
+def format_value(v):
+    if v is None:
+        return None
+    elif isinstance(v, datetime):
+        return v.strftime('%Y-%m-%d %H:%M:%S')
+    elif isinstance(v, time):
+        return v.strftime('%H:%M:%S')
+    return v
     
 async def insert_updatesheduling(user_data, message_data: MqttPublishDeviceSchedule):
 
@@ -343,24 +353,37 @@ async def insert_updatesheduling(user_data, message_data: MqttPublishDeviceSched
     find_device_schedule = select_last_data("device_schedule", "schedule_id", condi, "created_at")
     print(">>>>>>>>>>>>>>>>>", find_device_schedule)
 
-    # Convert Pydantic model → dict
+    # Convert Pydantic → dict
     data_dict = message_data.dict()
 
-    # Remove None fields
+    # Remove None
     clean_data = remove_none_fields(data_dict)
 
+    # ❌ Remove invalid DB columns (IMPORTANT)
+    clean_data.pop("device_id", None)
+    clean_data.pop("organization_id", None)
+    clean_data.pop("schedule_id", None)
+
+    # ✅ Format values (time/datetime fix)
+    clean_data = {k: format_value(v) for k, v in clean_data.items()}
+
     if find_device_schedule is not None:
-        # UPDATE → only non-null fields
+        # ================= UPDATE =================
         columns = {
             **clean_data,
             "updated_at": current_datetime,
             "created_by": user_data['user_id']
         }
 
+        # ✅ Format again for new fields
+        columns = {k: format_value(v) for k, v in columns.items()}
+
+        print("UPDATE DATA:", columns)
+
         user_id = update_data("device_schedule", columns, condi)
 
     else:
-        # INSERT → build dynamically
+        # ================= INSERT =================
         insert_dict = {
             "client_id": user_data['client_id'],
             "device": message_data.device,
@@ -370,13 +393,16 @@ async def insert_updatesheduling(user_data, message_data: MqttPublishDeviceSched
             **clean_data
         }
 
-        # Remove duplicate keys if any
+        # Remove unwanted keys
         insert_dict.pop("schedule_id", None)
         insert_dict.pop("organization_id", None)
+        insert_dict.pop("device_id", None)
+
+        # ✅ Format values
+        insert_dict = {k: format_value(v) for k, v in insert_dict.items()}
 
         columns = ", ".join(insert_dict.keys())
 
-        # Handle NULL properly
         values = []
         for v in insert_dict.values():
             if v is None:
@@ -388,15 +414,16 @@ async def insert_updatesheduling(user_data, message_data: MqttPublishDeviceSched
 
         values_str = ", ".join(values)
 
+        print("INSERT COLUMNS:", columns)
+        print("INSERT VALUES :", values_str)
+
         user_id = insert_data("device_schedule", columns, values_str)
 
-    print("KKKKKKKKKKKK", user_id)
+    print("RESULT ID:", user_id)
 
     await send_readsettings(user_data['client_id'], message_data.device, message_data.do_no)
 
     return user_id
-
-
 
 
 

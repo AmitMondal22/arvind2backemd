@@ -226,7 +226,11 @@ async def insert_updatesheduling(user_data,message_data: MqttPublishDeviceSchedu
         user_id = update_data("device_schedule", columns, condi)
     else:
         columns = "client_id, device, do_type, datalog_sec, do_no, one_on_time, one_off_time, two_on_time, two_off_time, created_by, created_at"
+        
         value = f"{user_data['client_id']}, '{message_data.device}', {message_data.do_type}, {message_data.datalog_sec}, {message_data.do_no}, '{message_data.one_on_time}', '{message_data.one_off_time}', '{message_data.two_on_time}', '{message_data.two_off_time}',{user_data['user_id']}, '{current_datetime}'"
+        
+        print("KKKKKKKKKKKK",columns)
+        print("KKKKKKKKKKKK",value)
         user_id = insert_data("device_schedule", columns, value)
         
     print("KKKKKKKKKKKK",user_id)
