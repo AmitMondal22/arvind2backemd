@@ -120,7 +120,7 @@ def get_branch_config(params):
         # 2) Get all devices via branch_number from md_device
         branch_number = branch_info.get('branch_number', '')
         if branch_number:
-            dev_sql = f"""SELECT device_id, device, device_name, model, device_status, device_type, gateway_id
+            dev_sql = f"""SELECT device_id, device, device_name, model, device_status, device_type, gateway_id, lat, lon, imei_no
                          FROM md_device 
                          WHERE branch_number = '{branch_number}' 
                            AND client_id = {params.client_id}"""
@@ -182,7 +182,10 @@ def get_branch_config(params):
                 "device": device_uid,
                 "device_name": dev.get('device_name', device_uid),
                 "model": dev.get('model', ''),
+                "device_type": dev.get('device_type', 'OMS'),
                 "status": 'online' if is_online else 'offline',
+                "lat": dev.get('lat'),
+                "lon": dev.get('lon'),
                 "valves": valves
             })
 
