@@ -210,6 +210,60 @@ async def publish_message(request: Request, message_data: MqttPublishDeviceSched
         user_data = request.state.user_data
 
         # -----------------------------
+        # Validation: Max 2 overlapping DOs at ANY given minute
+        # -----------------------------
+        def to_minutes(t):
+            if hasattr(t, 'hour'): return t.hour * 60 + t.minute
+            if isinstance(t, str):
+                if not t or t == '00:00:00' or t == '0:00:00': return 0
+                parts = t.split(':')
+                return int(parts[0]) * 60 + int(parts[1])
+            if isinstance(t, timedelta):
+                return int(t.total_seconds() // 60)
+            return 0
+            
+        def get_intervals(on_t, off_t):
+            start_m, end_m = to_minutes(on_t), to_minutes(off_t)
+            if start_m == 0 and end_m == 0: return []
+            
+            # If off time is 00:00:00 and start is not, maybe UI didn't set off time. Ignore wrap around unless it's a small wrap
+            if start_m > end_m: 
+                if end_m == 0: return [(start_m, 1439)]
+                return [(start_m, 1439), (0, end_m)]
+                
+            return [(start_m, end_m)]
+
+        real_do_no = message_data.do_no - 1
+        
+        try:
+            sql = f"SELECT do_no, slot, one_on_time, one_off_time, two_on_time, two_off_time FROM device_schedule WHERE device = '{message_data.device}' AND client_id = {user_data['client_id']} AND status = 1"
+            existing_schedules = custom_select_sql_query(sql, 1) or []
+            
+            min_active = [set() for _ in range(1440)]
+            for sched in existing_schedules:
+                if sched['do_no'] == real_do_no and sched.get('slot', 0) == (message_data.slot or 0):
+                    continue
+                for on_col, off_col in [('one_on_time', 'one_off_time'), ('two_on_time', 'two_off_time')]:
+                    for s, e in get_intervals(sched.get(on_col), sched.get(off_col)):
+                        s, e = max(0, min(1439, s)), max(0, min(1439, e))
+                        for m in range(s, e + 1): min_active[m].add(sched['do_no'])
+                            
+            new_intervals = get_intervals(message_data.one_on_time, message_data.one_off_time)
+            if message_data.two_on_time and message_data.two_off_time:
+                new_intervals += get_intervals(message_data.two_on_time, message_data.two_off_time)
+                
+            for s, e in new_intervals:
+                s, e = max(0, min(1439, s)), max(0, min(1439, e))
+                for m in range(s, e + 1):
+                    test_set = min_active[m] | {real_do_no}
+                    if len(test_set) > 2:
+                        raise ValueError("Maximum 2 valves (DO) can be scheduled at the same time. This new schedule overlaps with 2 other active valves.")
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            pass # ignore parsing errors from db and allow publish
+
+        # -----------------------------
         # Time split
         # -----------------------------
         one_on_hr = message_data.one_on_time.hour
@@ -240,7 +294,8 @@ async def publish_message(request: Request, message_data: MqttPublishDeviceSched
         # -----------------------------
         do_type = message_data.do_type
         channel = (message_data.do_no - 1)
-
+        # channel = message_data.do_no
+        
         if do_type == 0:
             do_type_mapped = 4
         elif do_type == 1:
@@ -285,7 +340,8 @@ async def publish_message(request: Request, message_data: MqttPublishDeviceSched
         # Get Gateway
         # -----------------------------
         userdata = request.state.user_data
-        message_data = message_data.copy(update={"do_no": -1})
+        message_data = message_data.copy(update={"do_no": (message_data.do_no - 1)})
+        # message_data = message_data.copy(update={"do_no": -1})
         condition = f"client_id={userdata['client_id']} AND device_id = {message_data.device_id}"
         data = select_one_data("md_device", "gateway_id", condition, order_by="device_id DESC")
 
@@ -305,6 +361,8 @@ async def publish_message(request: Request, message_data: MqttPublishDeviceSched
             status_code=200
         )
 
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -323,7 +381,7 @@ def format_value(v):
 async def insert_updatesheduling(user_data, message_data: MqttPublishDeviceSchedule):
 
     current_datetime = get_current_datetime()
-
+    print("Current datetimeeeeeeeeeeeeeeeeeeeeeeeeeeeee:", message_data.do_no)
     # ================= CONDITION =================
     condi = f"device='{message_data.device}' AND do_no={message_data.do_no} AND client_id={user_data['client_id']}"
     
@@ -574,7 +632,7 @@ def convert_timedelta(obj):
 async def publish_schedule_data(request: Request, message_data: MqttPublishDeviceScheduleList):
     try:
         user_data=request.state.user_data
-        condition=f"device='{message_data.device}' AND do_no ={message_data.do_no} AND client_id = {user_data['client_id']}"
+        condition=f"device='{message_data.device}' AND do_no ={(message_data.do_no-1)} AND client_id = {user_data['client_id']}"
         if message_data.slot is not None:
             condition += f" AND slot={message_data.slot}"
         select="schedule_id, client_id, device, do_type, datalog_sec, do_no, slot, status, one_on_time, one_off_time, two_on_time, two_off_time,days, created_by, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
