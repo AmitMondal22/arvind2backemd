@@ -7,7 +7,7 @@ from routes.mqtt_routes import subscribe_topics
 
 async def all_list_device(client_id):
     try:
-        select="device_id, device, device_name, model"
+        select="device_id, device, device_name, model, gateway_id, device_status, branch_number, device_type, lat, lon, imei_no, last_maintenance, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
         # select="device_id, device, do_channel, model, lat, lon, imei_no, last_maintenance, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
         condition=f"client_id={client_id}"
         data = select_data("md_device", select, condition,order_by="device_id ASC")
@@ -18,7 +18,7 @@ async def all_list_device(client_id):
     
 async def list_device(client_id, organization_id):
     try:
-        select="d.device_id, d.device,d.device_name, d.do_channel, d.model, d.lat, d.lon, d.imei_no, d.last_maintenance, DATE_FORMAT(d.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(d.updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
+        select="d.device_id, d.device, d.device_name, d.do_channel, d.model, d.gateway_id, d.device_status, d.branch_number, d.device_type, d.lat, d.lon, d.imei_no, d.last_maintenance, DATE_FORMAT(d.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(d.updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
         
         condition = f"d.device_id = mud.device_id AND d.client_id = mud.client_id AND mud.client_id = {client_id} AND mud.organization_id = {organization_id}"
         find_devices=select_data("md_device AS d, md_manage_user_device AS mud", select, condition,order_by="d.device_id ASC")
@@ -31,7 +31,7 @@ async def list_device(client_id, organization_id):
 
 async def user_device_list(client_id, user_id, organization_id):
     try:
-        select="d.device_id, d.device,d.device_name, d.do_channel, d.model, d.lat, d.lon, d.imei_no, d.last_maintenance, DATE_FORMAT(d.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(d.updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
+        select="d.device_id, d.device, d.device_name, d.do_channel, d.model, d.gateway_id, d.device_status, d.branch_number, d.device_type, d.lat, d.lon, d.imei_no, d.last_maintenance, DATE_FORMAT(d.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(d.updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
         
         condition = f"d.device_id = mud.device_id AND d.client_id = mud.client_id AND mud.client_id = {client_id} AND mud.user_id = {user_id} AND mud.organization_id = {organization_id}"
         find_devices=select_data("md_device AS d, md_manage_user_device AS mud", select, condition,order_by="d.device ASC")
@@ -278,6 +278,9 @@ async def manage_list_device(params):
                     a.lon,
                     a.imei_no,
                     a.device_type,
+                    a.gateway_id,
+                    a.device_status,
+                    a.branch_number,
                     a.last_maintenance,
                     DATE_FORMAT(a.created_at, '%Y-%m-%d') AS device_created_at,
                     DATE_FORMAT(a.updated_at, '%Y-%m-%d %H:%i:%s') AS device_updated_at,
