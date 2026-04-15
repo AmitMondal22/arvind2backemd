@@ -52,6 +52,8 @@ class BranchScheduleSaveAll(BaseModel):
     two_off_time: Optional[str] = "00:00:00"
     datalog_sec: Optional[int] = 120
     days: Optional[str] = "sun,mon,tue,wed,thu,fri,sat"
+    slot: Optional[int] = 0       # 0, 1, 2
+    status: Optional[int] = 1     # 1=enabled, 0=disabled
 
 # Branch-Level Schedule Reset (applies to ALL devices in branch)
 class BranchScheduleResetAll(BaseModel):

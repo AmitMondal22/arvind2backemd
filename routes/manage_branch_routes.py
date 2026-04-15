@@ -130,23 +130,15 @@ async def switch_branch_all(request: Request, params: BranchSwitchAll):
 @manage_branch_routes.post("/manage_branch/schedule_save_all", dependencies=[Depends(mw_user_client)])
 async def schedule_save_all(request: Request, params: BranchScheduleSaveAll):
     try:
-        from routes.mqtt_routes import mqtt_client, days_to_mask, insert_updatesheduling
-        from db_model.MASTER_MODEL import select_one_data
-        from datetime import time as dt_time
+        from routes.mqtt_routes import mqtt_client, days_to_mask
 
         user_data = request.state.user_data
 
-        # 1) Get branch devices
+        # 1) Get branch info + unique gateways
         result = ManageBranchController.schedule_branch_all(params)
-        devices = result['devices']
+        branch_number = ManageBranchController._get_branch_number(params.branch_id, params.client_id)
 
-        # 2) Upsert device_group_schedule (branch-level)
-        try:
-            ManageBranchController.upsert_group_schedule(params, user_data['user_id'])
-        except Exception as gse:
-            print("Error upserting group schedule:", gse)
-
-        # 3) Parse time values
+        # 2) Parse time
         on_parts = params.one_on_time.split(':')
         off_parts = params.one_off_time.split(':')
         one_on_hr = int(on_parts[0])
@@ -154,76 +146,79 @@ async def schedule_save_all(request: Request, params: BranchScheduleSaveAll):
         one_off_hr = int(off_parts[0])
         one_off_min = int(off_parts[1])
 
+        # 3) Build GC hex payload (exact format)
+        # ─── Group ID: 5-char ASCII from branch_number ───
+        group_id = str(branch_number)[-5:] if len(str(branch_number)) >= 5 else str(branch_number).rjust(5, '0')
+        group_id_hex = ''.join(f"{ord(c):02X}" for c in group_id)
+
+        # ─── Byte 5: DO Type + Channel ───
+        channel = (params.do_no - 1) & 0x0F
+        do_type_mapped = 4 if params.do_type == 0 else 5
+        byte5 = ((do_type_mapped & 0x0F) << 4) | (channel & 0x0F)
+
+        # ─── Byte 6: Enable (bit7) + Slot (bit0-1) ───
+        slot = params.slot if params.slot is not None else 0
+        enable = params.status if params.status is not None else 1
+        byte6 = ((1 if enable else 0) << 7) | (slot & 0x03)
+
+        # ─── Time HEX ───
+        on_hr_hex = f"{one_on_hr:02X}"
+        on_min_hex = f"{one_on_min:02X}"
+        off_hr_hex = f"{one_off_hr:02X}"
+        off_min_hex = f"{one_off_min:02X}"
+
+        # ─── Days mask ───
+        days_mask = days_to_mask(params.days or "sun,mon,tue,wed,thu,fri,sat")
+        days_hex = f"{days_mask:02X}"
+
+        # ─── Final payload (12 bytes) ───
+        hex_payload = (
+            f"{group_id_hex}"     # 5 bytes (group ID)
+            f"{byte5:02X}"        # 1 byte  (DO Type + Channel)
+            f"{byte6:02X}"        # 1 byte  (Enable + Slot)
+            f"{on_hr_hex}"        # 1 byte
+            f"{on_min_hex}"       # 1 byte
+            f"{off_hr_hex}"       # 1 byte
+            f"{off_min_hex}"      # 1 byte
+            f"{days_hex}"         # 1 byte
+        )
+
+        gc_command = f"*GC,{hex_payload}#"
+
+        # 4) Get unique gateways and send GC command once per gateway
+        from db_model.MASTER_MODEL import custom_select_sql_query
+        gw_sql = f"""SELECT DISTINCT gateway_id 
+                     FROM md_device 
+                     WHERE branch_number = '{branch_number}' 
+                       AND client_id = {params.client_id}
+                       AND gateway_id IS NOT NULL 
+                       AND gateway_id != ''"""
+        gateways = custom_select_sql_query(gw_sql, 1)
+
         success_count = 0
         errors = []
 
-        for dev in devices:
-            try:
-                device_uid = dev['device']
-                device_id = dev['device_id']
+        if gateways:
+            for gw in gateways:
+                try:
+                    mqtt_client.publish(f"/ST/{gw['gateway_id']}", gc_command, qos=1)
+                    success_count += 1
+                except Exception as ex:
+                    errors.append({"gateway_id": gw['gateway_id'], "error": str(ex)})
 
-                # ─── Build *GC hex payload ───
-                # GC format: *GC,<5-char groupID><byte5><onHr><onMin><offHr><offMin><daysMask>#
-                channel = params.do_no - 1
-                do_type_mapped = 4 if params.do_type == 0 else 5
-
-                byte5 = ((do_type_mapped & 0x0F) << 4) | (channel & 0x0F)
-
-                on_hr_hex = f"{one_on_hr:02X}"
-                on_min_hex = f"{one_on_min:02X}"
-                off_hr_hex = f"{one_off_hr:02X}"
-                off_min_hex = f"{one_off_min:02X}"
-
-                days_mask = days_to_mask(params.days or "sun,mon,tue,wed,thu,fri,sat")
-                days_hex = f"{days_mask:02X}"
-
-                # Build device UID as part of group payload (5 ASCII chars, right-padded)
-                group_id = device_uid[-5:] if len(device_uid) >= 5 else device_uid.rjust(5, '0')
-                group_id_hex = ''.join(f"{ord(c):02X}" for c in group_id)
-
-                hex_payload = f"{group_id_hex}{byte5:02X}{on_hr_hex}{on_min_hex}{off_hr_hex}{off_min_hex}{days_hex}"
-                gc_command = f"*GC,{hex_payload}#"
-
-                # Also build *LC command (per-device schedule command)
-                device_id_int = int(device_uid) if device_uid.isdigit() else 0
-                rxUID_hex = f"{device_id_int:04X}"
-                lc_hex_payload = f"{rxUID_hex}{byte5:02X}{on_hr_hex}{on_min_hex}{off_hr_hex}{off_min_hex}{days_hex}"
-                lc_command = f"*LC,{lc_hex_payload}#"
-
-                # Publish MQTT - send both GC (group) and LC (per-device) commands
-                if dev['gateway_id']:
-                    # Send LC command (per-device schedule)
-                    mqtt_client.publish(f"/ST/{dev['gateway_id']}", lc_command, qos=1)
-
-                    # Send GC command (group schedule)
-                    mqtt_client.publish(f"/ST/{dev['gateway_id']}", gc_command, qos=1)
-
-                # ─── Insert/Update device_schedule for this device ───
-                class ScheduleData:
-                    pass
-                sd = ScheduleData()
-                sd.device = device_uid
-                sd.device_id = device_id
-                sd.do_type = params.do_type
-                sd.do_no = params.do_no
-                sd.one_on_time = dt_time(one_on_hr, one_on_min, 0)
-                sd.one_off_time = dt_time(one_off_hr, one_off_min, 0)
-                sd.two_on_time = dt_time(0, 0, 0)
-                sd.two_off_time = dt_time(0, 0, 0)
-                sd.datalog_sec = params.datalog_sec or 120
-                sd.days = params.days or "sun,mon,tue,wed,thu,fri,sat"
-
-                await insert_updatesheduling(user_data, sd)
-                success_count += 1
-
-            except Exception as ex:
-                errors.append({"device": dev['device'], "error": str(ex)})
+        # 5) Upsert device_group_schedule (branch-level only, no per-device loop)
+        try:
+            ManageBranchController.upsert_group_schedule(params, user_data['user_id'])
+        except Exception as gse:
+            print("Error upserting group schedule:", gse)
 
         resdata = successResponse({
             "success_count": success_count,
-            "total_devices": len(devices),
+            "total_gateways": len(gateways) if gateways else 0,
+            "branch_number": branch_number,
+            "command": gc_command,
             "errors": errors
-        }, message=f"Schedule saved to {success_count}/{len(devices)} devices")
+        }, message=f"Schedule sent to {success_count} gateway(s)")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))

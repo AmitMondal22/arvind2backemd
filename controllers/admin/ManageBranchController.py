@@ -325,7 +325,9 @@ def upsert_group_schedule(params, user_id):
     """Insert or update the branch-level group schedule record"""
     try:
         current_datetime = get_current_datetime()
-        condi = f"branch_id = {params.branch_id} AND do_no = {params.do_no} AND client_id = {params.client_id}"
+        slot = params.slot if hasattr(params, 'slot') and params.slot is not None else 0
+        status = params.status if hasattr(params, 'status') and params.status is not None else 1
+        condi = f"branch_id = {params.branch_id} AND do_no = {params.do_no} AND client_id = {params.client_id} AND slot = {slot}"
         existing = select_one_data("device_group_schedule", "group_schedule_id", condi)
 
         branch_number = _get_branch_number(params.branch_id, params.client_id)
@@ -340,6 +342,8 @@ def upsert_group_schedule(params, user_id):
                 "two_on_time": params.two_on_time or "00:00:00",
                 "two_off_time": params.two_off_time or "00:00:00",
                 "days": params.days or "sun,mon,tue,wed,thu,fri,sat",
+                "slot": slot,
+                "status": status,
                 "updated_at": current_datetime,
                 "created_by": user_id
             }
@@ -347,13 +351,14 @@ def upsert_group_schedule(params, user_id):
             return existing.get('group_schedule_id')
         else:
             # INSERT
-            col_str = "client_id, branch_id, branch_number, do_type, do_no, datalog_sec, one_on_time, one_off_time, two_on_time, two_off_time, days, created_by, created_at"
+            col_str = "client_id, branch_id, branch_number, do_type, do_no, datalog_sec, one_on_time, one_off_time, two_on_time, two_off_time, days, slot, status, created_by, created_at"
             val_str = (
                 f"{params.client_id}, {params.branch_id}, '{branch_number}', "
                 f"{params.do_type}, {params.do_no}, {params.datalog_sec or 120}, "
                 f"'{params.one_on_time}', '{params.one_off_time}', "
                 f"'{params.two_on_time or '00:00:00'}', '{params.two_off_time or '00:00:00'}', "
                 f"'{params.days or 'sun,mon,tue,wed,thu,fri,sat'}', "
+                f"{slot}, {status}, "
                 f"{user_id}, '{current_datetime}'"
             )
             return insert_data("device_group_schedule", col_str, val_str)
