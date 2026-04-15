@@ -195,7 +195,7 @@ async def add_device(params):
     # try:
         
         
-        column="client_id, device, device_name, do_channel, model, lat, lon, imei_no, last_maintenance, created_at"
+        column="client_id, device, device_name, do_channel, model, lat, lon, imei_no, device_type, last_maintenance, created_at"
         
         rows_data = []
         for params_data in params:
@@ -208,8 +208,9 @@ async def add_device(params):
                 "lat": params_data.lat,
                 "lon": params_data.lon,
                 "imei_no": params_data.imei_no,
+                "device_type": params_data.device_type or 'OMS',
                 "last_maintenance": params_data.last_maintenance,
-                "created_at": get_current_datetime()  # Assuming get_current_datetime() returns the current datetime
+                "created_at": get_current_datetime()
             }
             rows_data.append(row_data)        
         batch_dataid=batch_insert_data("md_device", column, rows_data)
@@ -225,7 +226,7 @@ async def add_device(params):
 async def edit_device(params):
     try:
         condition = f"device_id = {params.device_id} AND client_id = {params.client_id}"
-        columns={"device":params.device, "device_name":params.device_name, "do_channel":params.do_channel, "model":params.model, "lat":params.lat, "lon":params.lon, "imei_no":params.imei_no, "updated_at":get_current_datetime()}
+        columns={"device":params.device, "device_name":params.device_name, "do_channel":params.do_channel, "model":params.model, "lat":params.lat, "lon":params.lon, "imei_no":params.imei_no, "device_type":params.device_type or 'OMS', "updated_at":get_current_datetime()}
         data = update_data("md_device", columns, condition)
         print(data)
         return data
@@ -276,6 +277,7 @@ async def manage_list_device(params):
                     a.lat,
                     a.lon,
                     a.imei_no,
+                    a.device_type,
                     a.last_maintenance,
                     DATE_FORMAT(a.created_at, '%Y-%m-%d') AS device_created_at,
                     DATE_FORMAT(a.updated_at, '%Y-%m-%d %H:%i:%s') AS device_updated_at,
