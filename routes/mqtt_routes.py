@@ -285,6 +285,7 @@ async def publish_message(request: Request, message_data: MqttPublishDeviceSched
         # Get Gateway
         # -----------------------------
         userdata = request.state.user_data
+        message_data = message_data.copy(update={"do_no": -1})
         condition = f"client_id={userdata['client_id']} AND device_id = {message_data.device_id}"
         data = select_one_data("md_device", "gateway_id", condition, order_by="device_id DESC")
 
@@ -459,7 +460,7 @@ async def read_scheduling(request: Request, message_data: MqttReadSchedule):
         device_int = int(message_data.device)   # "0050" → 50
         uid_hex = f"{device_int:04X}"           # → 0032
 
-        channel = message_data.do_no & 0x0F     # safety
+        channel = (message_data.do_no-1) & 0x0F     # safety
         slot = (message_data.slot or 1) & 0x03  # only 0–3 allowed
 
         # ✅ Command selection
