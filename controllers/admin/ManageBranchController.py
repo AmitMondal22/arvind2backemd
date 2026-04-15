@@ -1,7 +1,6 @@
 from db_model.MASTER_MODEL import select_data, insert_data, update_data, delete_data, select_one_data, custom_select_sql_query
 from utils.date_time_format import get_current_datetime
 
-
 def get_available_branch_numbers(params):
     """Get unique branch_number values from md_device that are not yet assigned to a branch"""
     try:
@@ -24,7 +23,6 @@ def get_available_branch_numbers(params):
     except Exception as e:
         raise e
 
-
 def add_branch(branch):
     """Add branch = UPDATE existing manage_branch record using WHERE branch_number"""
     try:
@@ -38,7 +36,6 @@ def add_branch(branch):
         return {"success": True, "branch_name": branch.branch_name, "branch_number": branch.branch_number}
     except Exception as e:
         raise e
-
 
 def list_branch(params):
     """List branches with device count and device details from md_device via branch_number"""
@@ -58,7 +55,6 @@ def list_branch(params):
             
         data = select_data(table, select, condition)
         
-        # For each branch, fetch devices from md_device by branch_number
         if data:
             for branch in data:
                 branch_number = branch.get('branch_number')
@@ -79,7 +75,6 @@ def list_branch(params):
     except Exception as e:
         raise e
 
-
 def edit_branch(branch):
     """Edit branch - uses branch_number in WHERE clause, branch_number itself is NOT editable"""
     try:
@@ -94,7 +89,6 @@ def edit_branch(branch):
     except Exception as e:
         raise e
 
-
 def delete_branch(branch):
     try:
         condition = f"branch_id = {branch.branch_id}"
@@ -102,7 +96,6 @@ def delete_branch(branch):
         return {"success": bool(data)}
     except Exception as e:
         raise e
-
 
 # Branch Config - Full control panel data
 def get_branch_config(params):
@@ -117,7 +110,6 @@ def get_branch_config(params):
             raise ValueError("Branch not found")
         branch_info = branch_rows[0]
 
-        # 2) Get all devices via branch_number from md_device
         branch_number = branch_info.get('branch_number', '')
         if branch_number:
             dev_sql = f"""SELECT device_id, device, device_name, model, device_status, device_type, gateway_id, lat, lon, imei_no
@@ -189,6 +181,38 @@ def get_branch_config(params):
                 "valves": valves
             })
 
+        # 4) Get branch-level group schedules
+        branch_schedule = {}
+        for valve_no in range(1, 7):
+            gs_sql = f"""
+                SELECT group_schedule_id, do_type, do_no,
+                       one_on_time, one_off_time,
+                       two_on_time, two_off_time,
+                       days, datalog_sec
+                FROM device_group_schedule
+                WHERE branch_id = {params.branch_id}
+                  AND do_no = {valve_no}
+                  AND client_id = {params.client_id}
+                ORDER BY group_schedule_id DESC
+                LIMIT 1
+            """
+            try:
+                gs = custom_select_sql_query(gs_sql, None)
+                if gs and gs.get('group_schedule_id'):
+                    branch_schedule[f"valve_{valve_no}"] = {
+                        "do_type": gs.get('do_type'),
+                        "one_on_time": str(gs.get('one_on_time', '00:00:00')),
+                        "one_off_time": str(gs.get('one_off_time', '00:00:00')),
+                        "two_on_time": str(gs.get('two_on_time', '00:00:00')),
+                        "two_off_time": str(gs.get('two_off_time', '00:00:00')),
+                        "days": gs.get('days', ''),
+                        "has_schedule": True
+                    }
+                else:
+                    branch_schedule[f"valve_{valve_no}"] = {"has_schedule": False, "do_type": None}
+            except Exception:
+                branch_schedule[f"valve_{valve_no}"] = {"has_schedule": False, "do_type": None}
+
         return {
             "branch": branch_info,
             "summary": {
@@ -197,11 +221,11 @@ def get_branch_config(params):
                 "active_valves": active_valve_count,
                 "total_valves": len(device_list) * 6
             },
-            "devices": device_list
+            "devices": device_list,
+            "branch_schedule": branch_schedule
         }
     except Exception as e:
         raise e
-
 
 # ─── Helper: get all devices in a branch ───
 def _get_branch_devices(branch_id, client_id):
@@ -231,23 +255,48 @@ def _get_branch_devices(branch_id, client_id):
     except Exception:
         return []
 
+def _get_branch_number(branch_id, client_id):
+    """Returns branch_number for the given branch_id"""
+    try:
+        branch_info = select_one_data("manage_branch", "branch_number", f"branch_id = {branch_id} AND client_id = {client_id}")
+        if branch_info:
+            return branch_info.get('branch_number', '')
+        return ''
+    except Exception:
+        return ''
 
 # ─── Branch-Level Switch (all devices) ───
 def switch_branch_all(params):
-    """Send valve ON/OFF to ALL devices in the branch"""
+    """Get branch info and unique gateway_ids for sending a single GC command per gateway"""
     try:
-        devices = _get_branch_devices(params.branch_id, params.client_id)
-        if not devices:
-            raise ValueError("No devices found in this branch")
+        branch_info = select_one_data("manage_branch", "branch_number", f"branch_id = {params.branch_id} AND client_id = {params.client_id}")
+        if not branch_info or not branch_info.get('branch_number'):
+            raise ValueError("Branch not found")
+        
+        branch_number = branch_info['branch_number']
+        
+        # Get unique gateway_ids for this branch
+        gw_sql = f"""SELECT DISTINCT gateway_id 
+                     FROM md_device 
+                     WHERE branch_number = '{branch_number}' 
+                       AND client_id = {params.client_id}
+                       AND gateway_id IS NOT NULL 
+                       AND gateway_id != ''"""
+        gateways = custom_select_sql_query(gw_sql, 1)
+        if not gateways:
+            raise ValueError("No gateways found for this branch")
+        
+        gateway_ids = [gw['gateway_id'] for gw in gateways if gw.get('gateway_id')]
+        
         return {
-            "devices": devices,
+            "branch_number": branch_number,
+            "gateway_ids": gateway_ids,
             "do_no": params.do_no,
             "value": params.value,
-            "device_count": len(devices)
+            "gateway_count": len(gateway_ids)
         }
     except Exception as e:
         raise e
-
 
 # ─── Branch-Level Schedule Save (all devices) ───
 def schedule_branch_all(params):
@@ -271,6 +320,55 @@ def schedule_branch_all(params):
     except Exception as e:
         raise e
 
+# ─── Insert/Update device_group_schedule ───
+def upsert_group_schedule(params, user_id):
+    """Insert or update the branch-level group schedule record"""
+    try:
+        current_datetime = get_current_datetime()
+        condi = f"branch_id = {params.branch_id} AND do_no = {params.do_no} AND client_id = {params.client_id}"
+        existing = select_one_data("device_group_schedule", "group_schedule_id", condi)
+
+        branch_number = _get_branch_number(params.branch_id, params.client_id)
+
+        if existing:
+            # UPDATE
+            columns = {
+                "do_type": params.do_type,
+                "datalog_sec": params.datalog_sec or 120,
+                "one_on_time": params.one_on_time,
+                "one_off_time": params.one_off_time,
+                "two_on_time": params.two_on_time or "00:00:00",
+                "two_off_time": params.two_off_time or "00:00:00",
+                "days": params.days or "sun,mon,tue,wed,thu,fri,sat",
+                "updated_at": current_datetime,
+                "created_by": user_id
+            }
+            update_data("device_group_schedule", columns, condi)
+            return existing.get('group_schedule_id')
+        else:
+            # INSERT
+            col_str = "client_id, branch_id, branch_number, do_type, do_no, datalog_sec, one_on_time, one_off_time, two_on_time, two_off_time, days, created_by, created_at"
+            val_str = (
+                f"{params.client_id}, {params.branch_id}, '{branch_number}', "
+                f"{params.do_type}, {params.do_no}, {params.datalog_sec or 120}, "
+                f"'{params.one_on_time}', '{params.one_off_time}', "
+                f"'{params.two_on_time or '00:00:00'}', '{params.two_off_time or '00:00:00'}', "
+                f"'{params.days or 'sun,mon,tue,wed,thu,fri,sat'}', "
+                f"{user_id}, '{current_datetime}'"
+            )
+            return insert_data("device_group_schedule", col_str, val_str)
+    except Exception as e:
+        raise e
+
+# ─── Delete group schedule for a valve ───
+def delete_group_schedule(branch_id, do_no, client_id):
+    """Delete the branch-level group schedule record for a specific valve"""
+    try:
+        condi = f"branch_id = {branch_id} AND do_no = {do_no} AND client_id = {client_id}"
+        delete_data("device_group_schedule", condi)
+    except Exception as e:
+        print("Error deleting group schedule:", e)
+        raise e
 
 # ─── Branch-Level Schedule Reset (all devices) ───
 def reset_branch_schedule_all(params):
@@ -279,6 +377,10 @@ def reset_branch_schedule_all(params):
         devices = _get_branch_devices(params.branch_id, params.client_id)
         if not devices:
             raise ValueError("No devices found in this branch")
+
+        # Also delete the group schedule
+        delete_group_schedule(params.branch_id, params.do_no, params.client_id)
+
         return {
             "devices": devices,
             "do_no": params.do_no,

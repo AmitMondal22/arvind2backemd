@@ -58,70 +58,70 @@ class MqttLibraryClass:
                 # Parse the date string; notice that the year is 2 digits (%y)
                 device_dt = datetime.strptime(date_time, "%d-%m-%y %H:%M:%S")
                 
-                
-                if reqdata.pkt == "RM":     #get Sheduling     
-                    settingsData = MqttPublishDeviceSchedule(
-                                        device=str(reqdata.nid),
-                                        do_type=int(0 if reqdata.mode == 4 else 1 if reqdata.mode == 5 else 0),  # 4 auto, 5 manual
-                                        do_no=int(reqdata.ch + 1)
-                                    )
-                    user_data = {}  # Create an empty dictionary
-                    user_data['client_id'] = 1  # Assign 123 to 'client_id'
-                    user_data['user_id'] = 0  # Assign 123 to 'client_id'
-                    
-                    asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData))
-                    
-                elif reqdata.pkt == "RT":       #setting type
-                    print("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRT")
+                if hasattr(reqdata, "pkt"):
+                    if reqdata.pkt == "RM":     #get Sheduling     
+                        settingsData = MqttPublishDeviceSchedule(
+                                            device=str(reqdata.nid),
+                                            do_type=int(0 if reqdata.mode == 4 else 1 if reqdata.mode == 5 else 0),  # 4 auto, 5 manual
+                                            do_no=int(reqdata.ch + 1)
+                                        )
+                        user_data = {}  # Create an empty dictionary
+                        user_data['client_id'] = 1  # Assign 123 to 'client_id'
+                        user_data['user_id'] = 0  # Assign 123 to 'client_id'
+                        
+                        asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData))
+                        
+                    elif reqdata.pkt == "RT":       #setting type
+                        print("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRT")
 
 
-                    days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    
-                    active_days = [
-                        days[i] for i in range(7)
-                        if reqdata.daysMask & (1 << i)
-                    ]
-                    
-                    ddyas = ",".join(active_days)
-                    
-                    settingsData = MqttPublishDeviceSchedule(
-                                        device=str(reqdata.nid),
-                                        do_type=int(0 if reqdata.mode == 4 else 1 if reqdata.mode == 5 else 0),  # 4 auto, 5 manual
-                                        do_no=int(reqdata.ch + 1),
+                        days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        
+                        active_days = [
+                            days[i] for i in range(7)
+                            if reqdata.daysMask & (1 << i)
+                        ]
+                        
+                        ddyas = ",".join(active_days)
+                        
+                        settingsData = MqttPublishDeviceSchedule(
+                                            device=str(reqdata.nid),
+                                            do_type=int(0 if reqdata.mode == 4 else 1 if reqdata.mode == 5 else 0),  # 4 auto, 5 manual
+                                            do_no=int(reqdata.ch + 1),
 
-                                        one_on_time = f"{reqdata.onHr:02d}:{reqdata.onMin:02d}:00",
-                                        one_off_time = f"{reqdata.offHr:02d}:{reqdata.offMin:02d}:00",
+                                            one_on_time = f"{reqdata.onHr:02d}:{reqdata.onMin:02d}:00",
+                                            one_off_time = f"{reqdata.offHr:02d}:{reqdata.offMin:02d}:00",
 
-                                        days =ddyas # New field for days of the week
-                                    )
-                    user_data = {}  # Create an empty dictionary
-                    user_data['client_id'] = 1  # Assign 123 to 'client_id'
-                    user_data['user_id'] = 0  # Assign 123 to 'client_id'
-                    
-                    asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData))
+                                            days =ddyas # New field for days of the week
+                                        )
+                        user_data = {}  # Create an empty dictionary
+                        user_data['client_id'] = 1  # Assign 123 to 'client_id'
+                        user_data['user_id'] = 0  # Assign 123 to 'client_id'
+                        
+                        asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData))
 
-                    
-                elif reqdata.pkt == "AD":
-                    formatted_date = device_dt.strftime("%Y.%m.%d")
-                    formatted_itme = device_dt.strftime("%H:%M:%S")
-                    deviceData =  WaterDeviceData(
-                        UID =  device_id,
-                        DT = formatted_date,
-                        TIME = formatted_itme,
-                        TW = 0.0,
-                        A1 = reqdata.ai1,
-                        A2 = 0.0,
-                        TOT1 = 0,
-                        TOT2 = 0,
-                        DO = '00000000',
-                        # BAT_V = reqdata.batV
-                        BAT_V = 0.0
-                    )
+                        
+                    elif reqdata.pkt == "AD":
+                        formatted_date = device_dt.strftime("%Y.%m.%d")
+                        formatted_itme = device_dt.strftime("%H:%M:%S")
+                        deviceData =  WaterDeviceData(
+                            UID =  device_id,
+                            DT = formatted_date,
+                            TIME = formatted_itme,
+                            TW = 0.0,
+                            A1 = reqdata.ai1,
+                            A2 = 0.0,
+                            TOT1 = 0,
+                            TOT2 = 0,
+                            DO = '00000000',
+                            # BAT_V = reqdata.batV
+                            BAT_V = 0.0
+                        )
 
-                    asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id))
-                    asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
+                        asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id))
+                        asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
                 else:
-                
+                    print("?????????????????????????????????????????????????????????????????????")
                     # Parse the date string; notice that the year is 2 digits (%y)
                     device_dt = datetime.strptime(date_time, "%d-%m-%y %H:%M:%S")
 

@@ -9,7 +9,6 @@ import json
 
 devices_routes = APIRouter()
 
-
 @devices_routes.post("/device_auto_register")
 async def post_device_auto_register(data: device_data_model.DeviceAutoRegister):
     try:
@@ -32,8 +31,6 @@ async def post_checked_devices(data: device_data_model.CheckedDevices):
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
-
-
 
 # ==============================================================================
 # # modifications
@@ -62,7 +59,6 @@ async def post_weather_data(data: device_data_model.WeatherDeviceDataApi):
             TM=data.TM,
             TW=data.TW,
             
-            # TEMP=float(data.TEMP),
             
             C1= data.TEMP, #TEMP
             T1=0.00,
@@ -98,7 +94,6 @@ async def post_weather_data(data: device_data_model.WeatherDeviceDataApi):
 @devices_routes.post("/waterflow_data_wfms")
 async def post_ws_data(data: device_data_model.WsDeviceData):
     try:
-        print(">>>>>>>>>>>>>>....",data)
         await WaterController.send_last_weather_data(client_id=data.client_id, device_id=data.device_id, device=data.device)
         resdata = successResponse("success", message="data stored successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
@@ -112,12 +107,7 @@ async def post_ws_data(data: device_data_model.WsDeviceData):
 @devices_routes.post("/waterflow_client_data_wfms")
 async def post_ws_data(data: device_data_model.WsDeviceOrgData2):
     # try:
-        print(">>>>>>>>>>>>>>....",data)
         await WaterController.send_last_client_data_project(data.organization_id, data.project_id)
         resdata = successResponse("success", message="data stored successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
-    # except ValueError as ve:
-    #     raise HTTPException(status_code=400, detail=str(ve))
-    # except Exception as e:
-    #     raise HTTPException(status_code=500, detail="Internal server error")
 

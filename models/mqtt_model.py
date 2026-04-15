@@ -2,14 +2,11 @@ from pydantic import BaseModel, Field, constr, field_validator,FieldValidationIn
 from datetime import date,datetime,time
 from typing import Optional, List 
 
-
-
 class MqttWfmsDO(BaseModel):
     device: str
     device_id: int
     do_no: int
     do_status: int
-
 
 class DigitalOutput(BaseModel):
     do_no: int
@@ -20,10 +17,6 @@ class MqttAllWfmsDO(BaseModel):
     device_id: int
     do: List[DigitalOutput]
     
-# class MqttPublishDeviceSchedule(BaseModel):
-#     schedule_id:Optional[int]=0
-#     organization_id: Optional[int]=None
-#     device_id: Optional[int]=None
 #     device: str
 #     do_type: int
 #     do_no: int
@@ -40,18 +33,21 @@ class MqttPublishDeviceSchedule(BaseModel):
     device: str
     do_type: int    
     do_no: int
+    slot: Optional[int] = None  # New field for slot number
     one_on_time: Optional[time] = None
     one_off_time: Optional[time] = None
     two_on_time: Optional[time] = None
     two_off_time: Optional[time] = None
     datalog_sec: Optional[int] = None
     days: Optional[str] = None  # New field for days of the week
+    status: Optional[int] = 1   # 1=enabled, 0=disabled
     
 class MqttReadSchedule(BaseModel):
     device: str
     do_no: int
     request_type: int
     device_id: str
+    slot: Optional[int] = None  # New field for slot number
 
 class MqttReadLastData(BaseModel):
     device: str
@@ -68,4 +64,5 @@ class MqttPublishDeviceScheduleList(BaseModel):
     device_id: int
     device: str
     do_no: int
+    slot: Optional[int] = None
    
