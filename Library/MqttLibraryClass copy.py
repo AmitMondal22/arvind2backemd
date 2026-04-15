@@ -62,7 +62,7 @@ class MqttLibraryClass:
                     if reqdata.pkt == "RM":     #get Sheduling     
                         settingsData = MqttPublishDeviceSchedule(
                                             device=str(reqdata.nid),
-                                            do_type=int(0 if reqdata.doType == 4 else 1 if reqdata.doType == 5 else 0),  # 4 auto, 5 manual
+                                            do_type=int(0 if reqdata.mode == 4 else 1 if reqdata.mode == 5 else 0),  # 4 auto, 5 manual
                                             do_no=int(reqdata.ch + 1)
                                         )
                         user_data = {}  # Create an empty dictionary
@@ -86,14 +86,13 @@ class MqttLibraryClass:
                         
                         settingsData = MqttPublishDeviceSchedule(
                                             device=str(reqdata.nid),
-                                            do_type=int(0 if reqdata.doType == 4 else 1 if reqdata.doType == 5 else 0),  # 4 auto, 5 manual
+                                            do_type=int(0 if reqdata.mode == 4 else 1 if reqdata.mode == 5 else 0),  # 4 auto, 5 manual
                                             do_no=int(reqdata.ch + 1),
 
                                             one_on_time = f"{reqdata.onHr:02d}:{reqdata.onMin:02d}:00",
                                             one_off_time = f"{reqdata.offHr:02d}:{reqdata.offMin:02d}:00",
 
-                                            days =ddyas, # New field for days of the week
-                                            status = int(reqdata.enabled)  # New field for status
+                                            days =ddyas # New field for days of the week
                                         )
                         user_data = {}  # Create an empty dictionary
                         user_data['client_id'] = 1  # Assign 123 to 'client_id'

@@ -323,41 +323,49 @@ async def insert_updatesheduling(user_data, message_data: MqttPublishDeviceSched
 
     current_datetime = get_current_datetime()
 
+    # ================= CONDITION =================
     condi = f"device='{message_data.device}' AND do_no={message_data.do_no} AND client_id={user_data['client_id']}"
+    
     if message_data.slot is not None:
         condi += f" AND slot={message_data.slot}"
 
-    find_device_schedule = select_last_data("device_schedule", "schedule_id", condi, "created_at")
+    find_device_schedule = select_last_data(
+        "device_schedule", "schedule_id", condi, "created_at"
+    )
 
-    # Convert Pydantic → dict
+    # ================= CLEAN DATA =================
     data_dict = message_data.dict()
-
-    # Remove None
     clean_data = remove_none_fields(data_dict)
 
-    # ❌ Remove invalid DB columns (IMPORTANT)
+    # ❌ Remove unwanted keys
     clean_data.pop("device_id", None)
     clean_data.pop("organization_id", None)
     clean_data.pop("schedule_id", None)
 
-    # ✅ Format values (time/datetime fix)
+    # ✅ Ensure slot & status exist
+    if "slot" not in clean_data:
+        clean_data["slot"] = 0   # default slot
+
+    if "status" not in clean_data:
+        clean_data["status"] = 1  # default active
+
+    # ✅ Format values
     clean_data = {k: format_value(v) for k, v in clean_data.items()}
 
+    # ================= UPDATE =================
     if find_device_schedule is not None:
-        # ================= UPDATE =================
         columns = {
             **clean_data,
             "updated_at": current_datetime,
             "created_by": user_data['user_id']
         }
 
-        # ✅ Format again for new fields
         columns = {k: format_value(v) for k, v in columns.items()}
 
         user_id = update_data("device_schedule", columns, condi)
 
+    # ================= INSERT =================
     else:
-        # ================= INSERT =================
         insert_dict = {
             "client_id": user_data['client_id'],
             "device": message_data.device,
@@ -367,12 +375,11 @@ async def insert_updatesheduling(user_data, message_data: MqttPublishDeviceSched
             **clean_data
         }
 
-        # Remove unwanted keys
+        # ❌ Remove unwanted keys again (safety)
         insert_dict.pop("schedule_id", None)
         insert_dict.pop("organization_id", None)
         insert_dict.pop("device_id", None)
 
-        # ✅ Format values
         insert_dict = {k: format_value(v) for k, v in insert_dict.items()}
 
         columns = ", ".join(insert_dict.keys())
@@ -390,9 +397,16 @@ async def insert_updatesheduling(user_data, message_data: MqttPublishDeviceSched
 
         user_id = insert_data("device_schedule", columns, values_str)
 
-    await send_readsettings(user_data['client_id'], message_data.device, message_data.do_no)
+    # ================= MQTT TRIGGER =================
+    await send_readsettings(
+        user_data['client_id'],
+        message_data.device,
+        message_data.do_no
+    )
 
     return user_id
+
+
 
 async def send_readsettings(client_id, device_id, dono):
     try:
@@ -435,49 +449,70 @@ async def reset_sheduling(request: Request,message_data: ResetMqttPublishDeviceS
     return pubdata
     
 
+
 @mqtt_routes.post("/read_sheduling", dependencies=[Depends(mw_user_client)])
-async def reset_sheduling(request: Request, message_data: MqttReadSchedule):
-    try:
-        # Convert Device ID → HEX (4 digits)
-        device_id_int = int(message_data.device)   # "0050" → 50
-        uid_hex = f"{device_id_int:04X}"           # → 0032
+async def read_scheduling(request: Request, message_data: MqttReadSchedule):
+    # try:
+        user_data = request.state.user_data
 
-        channel = message_data.do_no               # 0–15
-        slot = message_data.slot if message_data.slot is not None else 1  # default slot = 1
+        # ✅ Device → UID HEX
+        device_int = int(message_data.device)   # "0050" → 50
+        uid_hex = f"{device_int:04X}"           # → 0032
 
-        # ✅ Pack slot + channel into 1 byte
-        slot_channel = (slot << 4) | channel
-        slot_channel_hex = f"{slot_channel:02X}"
+        channel = message_data.do_no & 0x0F     # safety
+        slot = (message_data.slot or 1) & 0x03  # only 0–3 allowed
 
-        # ✅ Final payload (3 bytes only)
-        payload = f"{uid_hex}{slot_channel_hex}"
-
-        # Command selection
+        # ✅ Command selection
         if message_data.request_type == 0:
             cmd = "RT"   # Read Timer
+
+            # RT Read → UID + Channel (no slot needed usually)
+            payload = f"{uid_hex}{channel:02X}"
+
         else:
             cmd = "RM"   # Read Mode
 
+            # RM Read → UID + Channel
+            payload = f"{uid_hex}{channel:02X}"
+            
+        
+
+
         pubdata = f"*{cmd},{payload}#"
-        
-        
-        userdata=request.state.user_data
-        condition = f"client_id={userdata['client_id']} AND device_id = {message_data.device_id}"
-        data = select_one_data("md_device","gateway_id", condition,order_by="device_id DESC")
 
-        # Publish MQTT
-        mqtt_client.publish(f"/ST/{data['gateway_id']}", pubdata, qos=0)
-
+        print("payload",pubdata)
         
-        await send_readsettings(userdata['client_id'], message_data.device, channel)
+        condition = f"client_id={user_data['client_id']} AND device_id = {message_data.device_id}"
+
+        data = select_one_data(
+            "md_device",
+            "gateway_id",
+            condition,
+            order_by="device_id DESC"
+        )
+
+        if not data:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        # ✅ MQTT Publish
+        mqtt_client.publish(f"/ST/{data['gateway_id']}", pubdata, qos=1)
+
+        # ✅ Send response to frontend/socket
+        await send_readsettings(user_data['client_id'], message_data.device, channel)
 
         return {
             "status": "success",
-            "command": pubdata
+            "command": pubdata,
+            "info": {
+                "uid": uid_hex,
+                "channel": channel,
+                "slot": slot,
+                "type": cmd
+            }
         }
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=str(e))
     
     
 @mqtt_routes.post("/read_last_data", dependencies=[Depends(mw_user_client)])
