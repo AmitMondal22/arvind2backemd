@@ -188,7 +188,7 @@ def get_branch_config(params):
                 SELECT group_schedule_id, do_type, do_no,
                        one_on_time, one_off_time,
                        two_on_time, two_off_time,
-                       days, datalog_sec
+                       days, datalog_sec, slot, status
                 FROM device_group_schedule
                 WHERE branch_id = {params.branch_id}
                   AND do_no = {valve_no}
@@ -206,6 +206,8 @@ def get_branch_config(params):
                         "two_on_time": str(gs.get('two_on_time', '00:00:00')),
                         "two_off_time": str(gs.get('two_off_time', '00:00:00')),
                         "days": gs.get('days', ''),
+                        "slot": gs.get('slot', 0),
+                        "status": gs.get('status', 1),
                         "has_schedule": True
                     }
                 else:
