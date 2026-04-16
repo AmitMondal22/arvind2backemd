@@ -80,7 +80,7 @@ async def new_getway(gateway_id,branch):
             print("Gateway already exists → skip insert")
         else:
             columns = "gateway_id, start_id, max_id, retry, created_at"
-            value = f"'{gateway_id}', 1, 2, 2, '{current_datetime}'"
+            value = f"'{gateway_id}', 0, 0, 2, '{current_datetime}'"
 
             insert_data("md_gateway", columns, value)
             
