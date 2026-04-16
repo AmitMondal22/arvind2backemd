@@ -547,7 +547,7 @@ async def read_scheduling(request: Request, message_data: MqttReadSchedule):
             raise HTTPException(status_code=404, detail="Device not found")
 
         # ✅ MQTT Publish
-        mqtt_client.publish(f"/ST/{data['gateway_id']}", pubdata, qos=1)
+        mqtt_client.publish(f"/ST/{data['gateway_id']}", pubdata, QOS=1)
 
         # ✅ Send response to frontend/socket
         await send_readsettings(user_data['client_id'], message_data.device, channel)
