@@ -524,33 +524,7 @@ async def read_scheduling(request: Request, message_data: MqttReadSchedule):
         # ✅ Command selection
         if message_data.request_type == 0:
             cmd = "RT"   # Read Timer
-            
-            slot = (message_data.slot if message_data.slot is not None else 0) & 0x03
-            do_type_val = message_data.do_type or 0
-            do_type_mapped = 4 if do_type_val == 0 else 5
-            
-            byte2 = ((do_type_mapped & 0x0F) << 4) | (channel & 0x0F)
-            
-            enable = message_data.status if message_data.status is not None else 1
-            byte3 = ((1 if enable else 0) << 7) | slot
-            
-            on_h = message_data.one_on_time.hour if message_data.one_on_time else 0
-            on_m = message_data.one_on_time.minute if message_data.one_on_time else 0
-            off_h = message_data.one_off_time.hour if message_data.one_off_time else 0
-            off_m = message_data.one_off_time.minute if message_data.one_off_time else 0
-            
-            def local_days_to_mask(days_str):
-                if not days_str: return 0
-                dm = {"Sun": 0, "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6}
-                mask = 0
-                for d in days_str.split(','):
-                    if d.strip() in dm: mask |= (1 << dm[d.strip()])
-                return mask
-                
-            days_mask = local_days_to_mask(message_data.days)
-            
-            payload = f"{uid_hex}{byte2:02X}{byte3:02X}{on_h:02X}{on_m:02X}{off_h:02X}{off_m:02X}{days_mask:02X}"
-
+            payload = f"{uid_hex}{slot:X}{channel:X}"
         else:
             cmd = "RM"   # Read Mode
             # RM Read → UID + Channel
