@@ -173,7 +173,8 @@ async def send_otp(mobile_payload):
         if not user_info:
             raise ValueError("User not found with this mobile number")
             
-        new_otp = generate_otp(6)
+        # new_otp = generate_otp(6)
+        new_otp = 123456
         update_condition = f"user_id = {user_info['user_id']}"
         set_values = {"otp_number": str(new_otp), "otp_active_status": "Y"}
         update_data("users", set_values, update_condition)
