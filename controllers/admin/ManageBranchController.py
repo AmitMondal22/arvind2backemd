@@ -78,13 +78,14 @@ def list_branch(params):
 def edit_branch(branch):
     """Edit branch - uses branch_number in WHERE clause, branch_number itself is NOT editable"""
     try:
-        condition = f"branch_number = '{branch.branch_number}' AND client_id = {branch.client_id}"
+        condition = f"branch_number = '{branch.branch_number}'"
         columns = {
             "organization_id": branch.organization_id,
             "project_id": branch.project_id,
             "branch_name": branch.branch_name
         }
         data = update_data("manage_branch", columns, condition)
+        print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBranch update result:", data)
         return {"success": True}
     except Exception as e:
         raise e

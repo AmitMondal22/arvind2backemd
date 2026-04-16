@@ -48,7 +48,7 @@ async def get_weather_data(data:device_data_model.WaterDeviceData,client_id,devi
     
 async def update_device(device_id,imei,gateway_id,group_id):
     try:
-        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxxx",device_id,imei,gateway_id)
+        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxxx",device_id,imei,gateway_id,group_id)
         columns={"gateway_id":gateway_id,"device_status":"ONLINE", "branch_number": group_id}
         condition = f"device = {device_id}"
         update_data("md_device",columns,condition)
