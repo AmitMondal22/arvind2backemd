@@ -8,17 +8,17 @@ from utils.otp import generate_otp
 
 def add_user(user):
     try:
-        password = get_password_hash(user.password)
+        password = get_password_hash(user.mobile)
         new_otp = generate_otp(6)
         current_datetime = get_current_datetime()
         
-        columns = "user_name, user_email, user_info_id, user_active_status, user_type, otp_number, otp_active_status, password, created_by, created_at"
-        value = f"'{user.name}', '{user.email}', {user.organization_id}, 'Y', 'U', {new_otp}, 'N', '{password}', 0, '{current_datetime}'"
+        columns = "user_name, user_email, user_mobile, user_info_id, user_active_status, user_type, otp_number, otp_active_status, password, created_by, created_at"
+        value = f"'{user.name}', '{user.email}', '{user.mobile}', {user.organization_id}, 'Y', '{user.user_type}', {new_otp}, 'N', '{password}', 0, '{current_datetime}'"
         user_id = insert_data("users", columns, value)
         if user_id is None:
             raise ValueError("User registration failed")
         else:
-            user_data = {"user_id": user_id, "name": user.name, "email": user.email}
+            user_data = {"user_id": user_id, "name": user.name, "email": user.email, "mobile": user.mobile}
         return user_data
     except Exception as e:
         raise e
@@ -27,9 +27,9 @@ def add_user(user):
 
 def list_user(params):
     try:
-        select="u.user_id, u.user_name, u.user_email, u.user_info_id, u.user_active_status, u.user_type, u.otp_number, u.otp_active_status, u.created_by, DATE_FORMAT(u.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, o.organization_name, o.organization_id"
+        select="u.user_id, u.user_name, u.user_email, u.user_mobile, u.user_info_id, u.user_active_status, u.user_type, u.otp_number, u.otp_active_status, u.created_by, DATE_FORMAT(u.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, o.organization_name, o.organization_id"
         table="users as u, md_organization as o"
-        condition = f"u.user_info_id = o.organization_id AND o.client_id={params.client_id} AND u.user_type = 'U'"
+        condition = f"u.user_info_id = o.organization_id AND o.client_id={params.client_id}"
         data = select_data(table, select,condition)
         return data
     except Exception as e:
@@ -39,9 +39,9 @@ def list_user(params):
 
 def user_info(params):
     try:
-        select="u.user_id, u.user_name, u.user_email, u.user_info_id, u.user_active_status, u.user_type, u.otp_number, u.otp_active_status, u.created_by, DATE_FORMAT(u.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, o.organization_name, o.organization_id"
+        select="u.user_id, u.user_name, u.user_email, u.user_mobile, u.user_info_id, u.user_active_status, u.user_type, u.otp_number, u.otp_active_status, u.created_by, DATE_FORMAT(u.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, o.organization_name, o.organization_id"
         table="users as u, md_organization as o"
-        condition = f"u.user_info_id = o.organization_id AND u.user_id={params.user_id} AND o.client_id={params.client_id} AND u.user_type = 'U'"
+        condition = f"u.user_info_id = o.organization_id AND u.user_id={params.user_id} AND o.client_id={params.client_id}"
         data = select_one_data(table, select,condition)
         return data
     except Exception as e:
@@ -51,9 +51,8 @@ def user_info(params):
 
 def edit_user(user):
     try:
-        # password = get_password_hash(user.password)
         condition = f"user_id = {user.user_id}"
-        columns={"user_name":user.name,"user_email":user.email,"user_info_id":user.organization_id,"updated_at":get_current_datetime()}
+        columns={"user_name":user.name,"user_email":user.email,"user_mobile":user.mobile,"user_type":user.user_type,"user_info_id":user.organization_id,"updated_at":get_current_datetime()}
         data = update_data("users", columns, condition)
         return data
     except Exception as e:

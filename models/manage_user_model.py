@@ -5,29 +5,19 @@ from typing import List
 class AddUser(BaseModel):
     name: str
     email: str
-    password: str
-    confirm_password: str
+    mobile: str
     organization_id: int
-
-    @validator('confirm_password')
-    def passwords_match(cls, v, values, **kwargs):
-        if 'password' in values and v != values['password']:
-            raise ValueError('Passwords do not match')
-        return v
+    user_type: str
+    client_id: int
 
 class EditUser(BaseModel):
     name: str
     email: str
-    # password: str
-    # confirm_password: str
+    mobile: str
     organization_id: int
+    user_type: str
+    client_id: int
     user_id: int
-
-    # @validator('confirm_password')
-    # def passwords_match(cls, v, values, **kwargs):
-    #     if 'password' in values and v != values['password']:
-    #         raise ValueError('Passwords do not match')
-    #     return v
     
 class DeleteUser(BaseModel):
     user_id: int

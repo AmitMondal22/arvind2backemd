@@ -10,16 +10,17 @@ from fastapi import HTTPException
 
 async def register(user) -> dict:
     try:
-        password = get_password_hash(user.password)
+        # Default password is the mobile number
+        password = get_password_hash(user.mobile)
         new_otp = generate_otp(6)
         current_datetime = get_current_datetime()
-        columns = "user_name, user_email, user_info_id, user_active_status, user_type, otp_number, otp_active_status, password, created_by, created_at"
-        value = f"'{user.name}', '{user.email}', 1, 'Y', '{user.user_type}', {new_otp}, 'N', '{password}', 0, '{current_datetime}'"
+        columns = "user_name, user_email, user_mobile, user_info_id, user_active_status, user_type, otp_number, otp_active_status, password, created_by, created_at"
+        value = f"'{user.name}', '{user.email}', '{user.mobile}', {user.organization_id}, 'Y', '{user.user_type}', {new_otp}, 'N', '{password}', 0, '{current_datetime}'"
         user_id = insert_data("users", columns, value)
         if user_id is None:
             raise ValueError("User registration failed")
         else:
-            user_data = {"user_id": user_id, "name": user.name, "email": user.email}
+            user_data = {"user_id": user_id, "name": user.name, "email": user.email, "mobile": user.mobile}
         return user_data
     except Exception as e:
         raise e
