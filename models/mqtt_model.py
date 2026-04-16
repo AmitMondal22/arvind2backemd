@@ -48,6 +48,11 @@ class MqttReadSchedule(BaseModel):
     request_type: int
     device_id: str
     slot: Optional[int] = None  # New field for slot number
+    do_type: Optional[int] = None
+    one_on_time: Optional[time] = None
+    one_off_time: Optional[time] = None
+    days: Optional[str] = None
+    status: Optional[int] = 1
 
 class MqttReadLastData(BaseModel):
     device: str
