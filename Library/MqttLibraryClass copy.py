@@ -31,7 +31,7 @@ class MqttLibraryClass:
     def on_connect(self, client, userdata, flags, rc):
         print(f"Connected with result code {rc}")
         for topic, qos in self.subscriptions:
-            print(f"Subscribing to {topic} with QoS {qos}")
+            print(f"Subscribing to {topic} with qos {qos}")
             client.subscribe(topic, qos=qos)
 
     def on_message(self, client, userdata, msg):
@@ -205,7 +205,7 @@ class MqttLibraryClass:
                     print("Subscribed to topic: ", topic)
                     self.client.subscribe(topic, qos=qos)
 
-    def publish(self, topic, message, QOS=1):
+    def publish(self, topic, message, qos=1):
         self.client.publish(topic, message, qos=qos)
 
     def disconnect(self):

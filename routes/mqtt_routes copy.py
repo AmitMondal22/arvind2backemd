@@ -53,7 +53,7 @@ async def subscribe_topics():
 # async def publish_message(message_data: MqttEnergyDeviceData):
 #     try:
 #         # mqtt_client = MqttLibraryClass("test/topic")
-#         mqtt_client.publish(f"ems/{message_data.ib_id}/{message_data.device}", message_data.json(), QOS=1)
+#         mqtt_client.publish(f"ems/{message_data.ib_id}/{message_data.device}", message_data.json(), qos=1)
 #         return {"message": "Message published successfully"}
 #     except Exception as e:
 #         return {"error": str(e)}
@@ -129,7 +129,7 @@ async def publish_message(request: Request, message_data: MqttWfmsDO):
                 # srdata=f"*OPADO, ,1,2,0,0#"
                 # *OPADO, ,2,2,2,2,2,2,1,1#
             srdata=f"*OPADO, {message_data.device},{stt}#"
-            mqtt_client.publish(f"/WFMS/{message_data.device}", srdata, QOS=1)
+            mqtt_client.publish(f"/WFMS/{message_data.device}", srdata, qos=1)
             
             stt_list[do_no] = str(1)
             # Convert the list back to a string
@@ -138,7 +138,7 @@ async def publish_message(request: Request, message_data: MqttWfmsDO):
             time.sleep(2)
             srdata=f"*OPADO, {message_data.device},{stt2}#"
             
-            mqtt_client.publish(f"/WFMS/{message_data.device}", srdata, QOS=1)
+            mqtt_client.publish(f"/WFMS/{message_data.device}", srdata, qos=1)
         else:
             stt = "1,1,1,1,1,1,1,1,1"
             stt2 = "1,1,1,1,1,1,1,1,2"
@@ -162,9 +162,9 @@ async def publish_message(request: Request, message_data: MqttWfmsDO):
             
             srdata=f"*OPADO, {message_data.device},{stt}#"
             srdata2=f"*OPADO, {message_data.device},{stt2}#"
-            mqtt_client.publish(f"/WFMS/{message_data.device}", srdata2, QOS=1)
+            mqtt_client.publish(f"/WFMS/{message_data.device}", srdata2, qos=1)
             time.sleep(2)
-            mqtt_client.publish(f"/WFMS/{message_data.device}", srdata, QOS=1)
+            mqtt_client.publish(f"/WFMS/{message_data.device}", srdata, qos=1)
         resdata = successResponse(user_data, message="Message published successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
     # except ValueError as ve:
@@ -199,7 +199,7 @@ async def publish_message(request: Request, message_data: MqttPublishDeviceSched
         # //*DOTIM, ,0,4,16,00,17,00,18,00,19,00#
         
         
-        mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, QOS=1)
+        mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, qos=1)
         
         resdata = successResponse(user_id, message="Message published successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
@@ -286,7 +286,7 @@ async def reset_sheduling(request: Request,message_data: ResetMqttPublishDeviceS
     # //*DOTIM, ,0,4,16,00,17,00,18,00,19,00#
     
     
-    mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, QOS=1)
+    mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, qos=1)
     return pubdata
     
 
@@ -299,7 +299,7 @@ async def reset_sheduling(request: Request,message_data: MqttReadSchedule):
     # //*DOTIM, ,0,4,16,00,17,00,18,00,19,00#
     
     
-    mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, QOS=1)
+    mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, qos=1)
     return pubdata
     
     

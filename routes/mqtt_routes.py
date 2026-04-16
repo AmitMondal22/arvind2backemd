@@ -116,7 +116,7 @@ def encode_gc_frame(device_id, do_states):
 
 @mqtt_routes.post("/publish_all_digital_output", dependencies=[Depends(mw_user_client)])
 async def publish_message(request: Request, message_data: MqttAllWfmsDO):
-    try:
+    # try:
         user_data=request.state.user_data 
         # Sort the list by do_no just in case it's not ordered
         sorted_dos = sorted(message_data.do, key=lambda x: x.do_no)
@@ -131,13 +131,13 @@ async def publish_message(request: Request, message_data: MqttAllWfmsDO):
         
         
         srdata = encode_do_to_frame(message_data.device,doData)
-        mqtt_client.publish(f"/ST/{getway_id}", srdata, QOS=1)
+        mqtt_client.publish(f"/ST/{getway_id}", srdata, qos=1)
         resdata = successResponse(user_data, message="Message published successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal server error")
+    # except ValueError as ve:
+    #     raise HTTPException(status_code=400, detail=str(ve))
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail="Internal server error")
 
 @mqtt_routes.post("/publish_digital_output", dependencies=[Depends(mw_user_client)])
 async def publish_message(request: Request, message_data: MqttWfmsDO):
@@ -161,7 +161,7 @@ async def publish_message(request: Request, message_data: MqttWfmsDO):
         
             
             # *OPADO, ,2,2,2,2,2,2,1,1#
-        mqtt_client.publish(f"/WFMS/{message_data.device}", srdata, QOS=1)
+        mqtt_client.publish(f"/WFMS/{message_data.device}", srdata, qos=1)
         resdata = successResponse(user_data, message="Message published successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
     except ValueError as ve:
@@ -504,7 +504,7 @@ async def reset_sheduling(request: Request,message_data: ResetMqttPublishDeviceS
     # //*DOTIM, ,0,4,16,00,17,00,18,00,19,00#
     
     
-    mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, QOS=1)
+    mqtt_client.publish(f"/WFMS/{message_data.device}", pubdata, qos=1)
     return pubdata
     
 
@@ -547,7 +547,7 @@ async def read_scheduling(request: Request, message_data: MqttReadSchedule):
             raise HTTPException(status_code=404, detail="Device not found")
 
         # ✅ MQTT Publish
-        mqtt_client.publish(f"/ST/{data['gateway_id']}", pubdata, QOS=1)
+        mqtt_client.publish(f"/ST/{data['gateway_id']}", pubdata, qos=1)
 
         # ✅ Send response to frontend/socket
         await send_readsettings(user_data['client_id'], message_data.device, channel)
@@ -595,7 +595,7 @@ async def read_last_data(request: Request, message_data: MqttReadLastData):
 
         # 🔹 Publish MQTT
         topic = f"/ST/{data['gateway_id']}"
-        mqtt_client.publish(topic, pubdata, QOS=1)
+        mqtt_client.publish(topic, pubdata, qos=1)
 
         
         
