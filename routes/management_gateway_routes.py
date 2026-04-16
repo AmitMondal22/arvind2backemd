@@ -36,6 +36,14 @@ async def edit_gateway(request: Request, gateway: EditGateway):
     try:
         user_data = request.state.user_data
         data = GatewayController.edit_gateway(gateway, user_data)
+        
+        # Build and send MQTT payload
+        from routes.mqtt_routes import mqtt_client
+        topic = f"/ARVIND/{gateway.gateway_id}"
+        pubdata = f"*LORACFG,{gateway.start_id},{gateway.max_id},{gateway.retry},{gateway.id}#"
+        mqtt_client.publish(topic, pubdata, qos=1)
+        print("Publishing to config:", topic, pubdata)
+
         resdata = successResponse(data, message="Gateway edited successfully")
         return Response(content=json.dumps(resdata, cls=DecimalEncoder), media_type="application/json", status_code=200)
     except ValueError as ve:

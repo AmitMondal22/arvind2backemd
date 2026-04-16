@@ -107,7 +107,7 @@ async def switch_branch_all(request: Request, params: BranchSwitchAll):
         # Send same frame to each unique gateway (no per-device loop)
         for gw_id in gateway_ids:
             try:
-                mqtt_client.publish(f"/ST/{gw_id}", frame, qos=0)
+                mqtt_client.publish(f"/ST/{gw_id}", frame, QOS=1)
                 success_count += 1
             except Exception as ex:
                 errors.append({"gateway_id": gw_id, "error": str(ex)})

@@ -42,7 +42,7 @@ class MqttLibraryClass:
                     self.client.subscribe(topic, qos=qos)
                     
 
-    def publish(self, topic, message, qos=0):
+    def publish(self, topic, message, QOS=1):
         self.client.publish(topic, message, qos=qos)
 
     def disconnect(self):
