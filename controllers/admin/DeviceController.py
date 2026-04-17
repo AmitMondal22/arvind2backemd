@@ -81,7 +81,7 @@ async def project_user_device_list(client_id, user_id, organization_id,project_i
     
 async def project_user_device_listType(client_id, user_id, organization_id,project_id,type):
     try:
-        select = "d.device_id, d.device, d.device_name,d.device_status, d.model, wd.created_at"
+        select = "d.device_id, d.device, d.device_name,d.device_status, d.model,d.device_type,d.lat,d.lon,d.imei_no,d.last_maintenance,d.branch_number,d.gateway_id, wd.created_at"
     
         condition = (
             f"d.device_id = mud.device_id "
@@ -119,7 +119,7 @@ async def project_user_device_listType(client_id, user_id, organization_id,proje
     
 async def project_list_device_type(client_id, organization_id,project_id,type):
     try:
-        select = "d.device_id, d.device,d.device_status, d.device_name, d.model, wd.created_at"
+        select = "d.device_id, d.device,d.device_status, d.device_name, d.model,d.device_type,d.lat,d.lon,d.imei_no,d.last_maintenance,d.branch_number,d.gateway_id, wd.created_at"
     
         # Define the tables with the subquery for the latest td_water_data
         tables = """md_device AS d
