@@ -137,6 +137,7 @@ def get_branch_config(params):
 
             valves = {}
             for valve_no in range(1, 7):
+                # 1) Get schedule info
                 schedule_sql = f"""
                     SELECT schedule_id, do_type, do_no,
                            one_on_time, one_off_time,
@@ -149,6 +150,19 @@ def get_branch_config(params):
                     ORDER BY schedule_id DESC
                     LIMIT 1
                 """
+                # 2) Get current valve ON/OFF status from td_water_data
+                status_sql = f"""
+                    SELECT do_status 
+                    FROM td_water_data 
+                    WHERE device = '{device_uid}' 
+                      AND do_no = {valve_no}
+                      AND client_id = {params.client_id}
+                    ORDER BY water_data_id DESC
+                    LIMIT 1
+                """
+
+                valve_data = {"has_schedule": False, "do_type": None, "do_status": 0}
+
                 try:
                     sched_rows = custom_select_sql_query(schedule_sql, None)
                     if sched_rows and len(sched_rows) > 0:
@@ -156,7 +170,8 @@ def get_branch_config(params):
                         valve_active = sched.get('do_type', 0) is not None
                         if valve_active:
                             active_valve_count += 1
-                        valves[f"valve_{valve_no}"] = {
+                        
+                        valve_data.update({
                             "do_type": sched.get('do_type'),
                             "one_on_time": str(sched.get('one_on_time', '00:00:00')),
                             "one_off_time": str(sched.get('one_off_time', '00:00:00')),
@@ -164,11 +179,18 @@ def get_branch_config(params):
                             "two_off_time": str(sched.get('two_off_time', '00:00:00')),
                             "days": sched.get('days', ''),
                             "has_schedule": True
-                        }
-                    else:
-                        valves[f"valve_{valve_no}"] = {"has_schedule": False, "do_type": None}
+                        })
                 except Exception:
-                    valves[f"valve_{valve_no}"] = {"has_schedule": False, "do_type": None}
+                    pass
+
+                try:
+                    status_rows = custom_select_sql_query(status_sql, None)
+                    if status_rows and len(status_rows) > 0:
+                        valve_data["do_status"] = int(status_rows[0].get('do_status') or 0)
+                except Exception:
+                    pass
+
+                valves[f"valve_{valve_no}"] = valve_data
 
             device_list.append({
                 "device_id": device_id,
