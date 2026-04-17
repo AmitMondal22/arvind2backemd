@@ -1,4 +1,4 @@
-from backend.Library.AlertLibrary import send_alert
+from Library.AlertLibrary import send_alert
 from db_model.MASTER_MODEL import insert_data,custom_select_sql_query,select_one_data,select_last_data, update_data
 from utils.date_time_format import get_current_datetime,get_current_date,get_current_time
 from fastapi import BackgroundTasks

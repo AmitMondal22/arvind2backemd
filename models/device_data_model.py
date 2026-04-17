@@ -372,3 +372,8 @@ class UserData(BaseModel):
     name: str
     # email: EmailStr
     age: Optional[int] = None
+
+class AmsAlertReportParams(BaseModel):
+    device: str
+    start_date: date
+    end_date: date

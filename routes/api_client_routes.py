@@ -8,7 +8,7 @@ from controllers.settings import ClientSettingsController
 from models.organization_model import AddOrganization, EditOrganizationData, DeleteOrganization,ListOrganization
 from models.project_model import AddProject,EditProjectData,DeleteProject,ProjectDeviceAdd,ProjectDeviceDelete
 from models.manage_user_model import AddUser, EditUser,DeleteUser,UserDeviceAdd,UserDeviceEdit,UserDeviceDelete,ListUsers,UserInfo,ClientId,DeviceInfo,DeviceListOrg,DeviceListOrgProject,DeviceStatusUpdate, DeviceListOrgProjectType
-from models.device_data_model import WeatherFlowData,AddAlert,DeviceAdd,DeviceEdit,EditAlert,DeleteAlert,TemperatureUsed, VoltageData,OrganizationSettings,OrganizationSettingsList,EditOrganization, ChartData
+from models.device_data_model import WeatherFlowData,AddAlert,DeviceAdd,DeviceEdit,EditAlert,DeleteAlert,TemperatureUsed, VoltageData,OrganizationSettings,OrganizationSettingsList,EditOrganization, ChartData, AmsAlertReportParams
 from models.client_settings import ClientScreenSettings, ClientScreenSettingsEdit
 
 from Library.DecimalEncoder import DecimalEncoder
@@ -677,6 +677,17 @@ async def daily_report(request: Request,params:WeatherFlowData):
         raise HTTPException(status_code=500, detail="Internal server error")
     
     
+@api_client_routes.post('/report/ams_alert_report', dependencies=[Depends(mw_user_client)])
+async def ams_alert_report(request: Request,params:AmsAlertReportParams):
+    try:
+        userdata=request.state.user_data
+        data = await DeviceController.ams_alert_report(params,userdata)
+        resdata = successResponse(data, message="AMS Alert report")
+        return Response(content=json.dumps(resdata,cls=DecimalEncoder), media_type="application/json", status_code=200)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
     
     
     # =================================================================================================

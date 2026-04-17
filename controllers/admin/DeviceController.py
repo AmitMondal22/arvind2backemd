@@ -616,7 +616,14 @@ async def daily_report(params,user_data):
         raise e
     
     
-    
+async def ams_alert_report(params, user_data):
+    try:
+        select = "id, client_id, device, alert_type, alert_value, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at"
+        condition = f"client_id = {user_data['client_id']} AND device = '{params.device}' AND DATE(created_at) BETWEEN '{params.start_date}' AND '{params.end_date}'"
+        data = select_data("oms_alert_log", select, condition, order_by="created_at DESC")
+        return data
+    except Exception as e:
+        raise e
 
 async def temperature(params,user_data):
     try:
