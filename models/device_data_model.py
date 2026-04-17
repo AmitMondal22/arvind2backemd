@@ -3,6 +3,12 @@ from datetime import date,datetime,time
 import re
 from typing import Optional,List
 
+class OmsDeviceThreshold(BaseModel):
+    device: str
+    min_val: float
+    max_val: float
+    high_threshold: float
+    low_threshold: float
 
 class WaterDeviceData(BaseModel):
     UID: str # device id
