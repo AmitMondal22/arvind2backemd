@@ -29,8 +29,8 @@ async def available_branch_numbers(request: Request, params: AvailableBranchNumb
 @manage_branch_routes.post("/manage_branch/add", dependencies=[Depends(mw_client)])
 async def add_branch(request: Request, branch: AddBranch):
     try:
-        data = ManageBranchController.edit_branch(branch)
-        resdata = successResponse(data, message="Branch updated successfully")
+        data = ManageBranchController.add_branch(branch)
+        resdata = successResponse(data, message="Branch added successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))

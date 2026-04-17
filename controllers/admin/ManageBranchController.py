@@ -24,15 +24,11 @@ def get_available_branch_numbers(params):
         raise e
 
 def add_branch(branch):
-    """Add branch = UPDATE existing manage_branch record using WHERE branch_number"""
+    
     try:
-        condition = f"branch_number = '{branch.branch_number}' AND client_id = {branch.client_id}"
-        columns = {
-            "organization_id": branch.organization_id,
-            "project_id": branch.project_id,
-            "branch_name": branch.branch_name
-        }
-        data = update_data("manage_branch", columns, condition)
+        column = "organization_id, project_id, branch_name, branch_number"
+        row_data = f"{branch.organization_id}, {branch.project_id}, '{branch.branch_name}', '{branch.branch_number}'"
+        data = insert_data("manage_branch", column ,row_data)
         return {"success": True, "branch_name": branch.branch_name, "branch_number": branch.branch_number}
     except Exception as e:
         raise e
