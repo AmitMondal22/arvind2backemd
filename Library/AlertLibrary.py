@@ -14,6 +14,8 @@ def send_alert(client_id, device, data):
         threshold = threshold_records[0]
         high_threshold = threshold.get('high_threshold')
         low_threshold = threshold.get('low_threshold')
+        min_val = threshold.get('min_val', 0)
+        max_val = threshold.get('max_val', 100)
 
         if high_threshold is None or low_threshold is None:
             return
@@ -28,17 +30,29 @@ def send_alert(client_id, device, data):
 
         if val is None:
             return
+            
+        try:
+            raw_val = float(val)
+            min_v = float(min_val) if min_val is not None else 0.0
+            max_v = float(max_val) if max_val is not None else 100.0
+            high_t = float(high_threshold)
+            low_t = float(low_threshold)
+        except (ValueError, TypeError):
+            return
+            
+        # Calibrate value: min(current + input, max)
+        calibrated_val = min(min_v + raw_val, max_v)
 
         alert_type = None
-        if val > high_threshold:
+        if calibrated_val >= high_t:
             alert_type = "High Value"
-        elif val < low_threshold:
+        elif calibrated_val <= low_t:
             alert_type = "Low Value"
 
         if alert_type:
-            # Save to oms_alert_log
+            # Save original raw value to oms_alert_log
             columns = "client_id, device, alert_type, alert_value"
-            values = f"'{client_id}', '{device}', '{alert_type}', {val}"
+            values = f"'{client_id}', '{device}', '{alert_type}', {raw_val}"
             insert_data("oms_alert_log", columns, values)
             
             # Additional email alert
