@@ -1,58 +1,53 @@
-from db_model.MASTER_MODEL import select_data
+from db_model.MASTER_MODEL import select_one_data, insert_data, custom_select_sql_query
+from config.db import connect
 from Library.EmailLibrary import send_email
 import json
-def send_alert(client_id, device_id, device, data):
-    print("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+
+def send_alert(client_id, device, data):
     try:
-        print("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
-        select="a.alert_id, a.client_id, a.organization_id, a.device_id, a.device, a.unit_id, a.alert_type, a.alert_value, a.alert_status, DATE_FORMAT(a.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, b.unit,b.unit_name"
-        table = "td_alert AS a, md_unit AS b"
-        condition=f"a.unit_id=b.unit_id AND a.client_id={client_id} AND a.device_id='{device_id}' AND a.device='{device}' AND a.alert_status='Y'"
-        order_by="a.alert_type ASC"
-        alertdata=select_data(table,select,condition,order_by)        
-        low_value = float('inf')  # Set to positive infinity
-        high_value = float('-inf')  # Set to negative infinity
-        critical_low_value = float('inf')  # Set to positive infinity
-        data = json.loads(data)
-       
-        alert_status=False
-        unit_value_pairs = []
-        for item in alertdata:
-            for key2, value2 in data.items():
-                if key2 == item['unit']:
-                    if item["alert_type"] == "1CL":
-                        critical_low_value=item["alert_value"]
-                        if item["alert_value"] > value2:
-                            unit_value_pairs.append((item['unit'], "Critical Low Value",value2))
-                            alert_status=True
-                    elif item["alert_type"] == "2L":
-                        low_value=item["alert_value"]
-                        if item["alert_value"] > value2 and value2 >= critical_low_value:
-                            unit_value_pairs.append((item['unit'], "Low Value", value2))
-                            alert_status=True
-                    elif item["alert_type"] == "3H":
-                        high_value=item["alert_value"]
-                        if item["alert_value"] > value2 and value2 >= low_value:
-                            unit_value_pairs.append((item['unit'],"High Value", value2))
-                            alert_status=True
-                    elif item["alert_type"] == "4CH":
-                        if item["alert_value"] < value2 or value2 > high_value:
-                            unit_value_pairs.append((item['unit'], "Critical High Value", value2))
-                            alert_status=True
-        low_value=0.0
-        high_value=0.0
-        critical_low_value=0.0
-        print("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",alert_status)
-        if alert_status:
-            print("QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQunit_value_pairs",unit_value_pairs)
+
+        # Check thresholds
+        threshold_records = custom_select_sql_query(f"SELECT * FROM oms_device_thresholds WHERE device = '{device}'")
+        if not threshold_records:
+            return
+
+        threshold = threshold_records[0]
+        high_threshold = threshold.get('high_threshold')
+        low_threshold = threshold.get('low_threshold')
+
+        if high_threshold is None or low_threshold is None:
+            return
             
+        val = getattr(data, 'A1', None)
+        if val is None:
+            if isinstance(data, dict):
+                val = data.get('A1')
+            elif hasattr(data, 'dict'):
+                data_dict = data.dict()
+                val = data_dict.get('A1')
+
+        if val is None:
+            return
+
+        alert_type = None
+        if val > high_threshold:
+            alert_type = "High Value"
+        elif val < low_threshold:
+            alert_type = "Low Value"
+
+        if alert_type:
+            # Save to oms_alert_log
+            columns = "client_id, device, alert_type, alert_value"
+            values = f"'{client_id}', '{device}', '{alert_type}', {val}"
+            insert_data("oms_alert_log", columns, values)
             
-            
-            html_file_path='template/email/template_send_alert1.html'
-            
-            abc=send_email("amit.offici@gmail.com", "Alert",html_file_path ,dynamic_data=None)
-            print("abc0000000000000000000000000",abc)
-            alert_status=False
+            # Additional email alert
+            # html_file_path = 'template/email/template_send_alert1.html'
+            # try:
+            #     send_email("amit.offici@gmail.com", f"Device {device} Alert: {alert_type}", html_file_path, dynamic_data=None)
+            # except Exception as e:
+            #     print("Failed to send email snippet:", e)
+
     except Exception as e:
-        print(e)
-        print("TEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+        print("Error in send_alert:", e)
+

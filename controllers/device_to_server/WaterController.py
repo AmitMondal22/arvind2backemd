@@ -1,3 +1,4 @@
+from backend.Library.AlertLibrary import send_alert
 from db_model.MASTER_MODEL import insert_data,custom_select_sql_query,select_one_data,select_last_data, update_data
 from utils.date_time_format import get_current_datetime,get_current_date,get_current_time
 from fastapi import BackgroundTasks
@@ -53,6 +54,13 @@ async def update_device(device_id,imei,gateway_id,group_id):
         condition = f"device = {device_id}"
         update_data("md_device",columns,condition)
         await new_getway(gateway_id,group_id)
+        return True
+    except Exception as e:
+        raise ValueError("Could not fetch data",e)
+
+async def alert_generate(client_id, device, data):
+    try:
+        send_alert(client_id, device, data)
         return True
     except Exception as e:
         raise ValueError("Could not fetch data",e)

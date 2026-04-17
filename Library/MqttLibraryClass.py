@@ -121,6 +121,7 @@ class MqttLibraryClass:
 
                         asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id))
                         asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
+                        asyncio.run(WaterController.alert_generate(cid_id,device_id,deviceData))
                 else:
                     print("?????????????????????????????????????????????????????????????????????")
                     # Parse the date string; notice that the year is 2 digits (%y)
@@ -131,14 +132,7 @@ class MqttLibraryClass:
                     formatted_itme = device_dt.strftime("%H:%M:%S")
                     
                     fwver = reqdata.fwver
-                    
-                    # node_msg = reqdata.msg
-
-                    # encode_data = parse_lora_packet(node_msg)
-                    
-                    # bits = encode_data['DO_status']
-                    # bit_string = ''.join(map(str, bits))
-                    # if 'DeviceID' in encode_data and encode_data['DeviceID'] is not None:
+                  
                     bit_string = ''.join(map(str, reqdata.sw))
 
                     print("[mqtt res]", bit_string)
