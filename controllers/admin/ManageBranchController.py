@@ -131,6 +131,25 @@ def get_branch_config(params):
             if is_online:
                 active_device_count += 1
 
+            # Get td_water_data do_status string for the device (e.g. '10000000')
+            do_status_str = "00000000"
+            status_sql = f"""
+                SELECT do_status 
+                FROM td_water_data 
+                WHERE device = '{device_uid}' 
+                  AND client_id = {params.client_id}
+                ORDER BY water_data_id DESC
+                LIMIT 1
+            """
+            try:
+                status_rows = custom_select_sql_query(status_sql, None)
+                if status_rows and len(status_rows) > 0:
+                    fetched_status = status_rows[0].get('do_status')
+                    if fetched_status and isinstance(fetched_status, str) and len(fetched_status) >= 6:
+                        do_status_str = fetched_status
+            except Exception:
+                pass
+
             valves = {}
             for valve_no in range(1, 7):
                 # 1) Get schedule info
@@ -146,18 +165,15 @@ def get_branch_config(params):
                     ORDER BY schedule_id DESC
                     LIMIT 1
                 """
-                # 2) Get current valve ON/OFF status from td_water_data
-                status_sql = f"""
-                    SELECT do_status 
-                    FROM td_water_data 
-                    WHERE device = '{device_uid}' 
-                      AND do_no = {valve_no}
-                      AND client_id = {params.client_id}
-                    ORDER BY water_data_id DESC
-                    LIMIT 1
-                """
 
                 valve_data = {"has_schedule": False, "do_type": None, "do_status": 0}
+
+                # check bit from do_status_str (0-indexed so valve_no - 1)
+                try:
+                    if do_status_str[valve_no - 1] == '1':
+                        valve_data["do_status"] = 1
+                except IndexError:
+                    pass
 
                 try:
                     sched_rows = custom_select_sql_query(schedule_sql, None)
@@ -176,13 +192,6 @@ def get_branch_config(params):
                             "days": sched.get('days', ''),
                             "has_schedule": True
                         })
-                except Exception:
-                    pass
-
-                try:
-                    status_rows = custom_select_sql_query(status_sql, None)
-                    if status_rows and len(status_rows) > 0:
-                        valve_data["do_status"] = int(status_rows[0].get('do_status') or 0)
                 except Exception:
                     pass
 
