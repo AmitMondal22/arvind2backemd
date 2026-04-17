@@ -142,21 +142,19 @@ def get_branch_config(params):
                 LIMIT 1
             """
             try:
-                status_rows = custom_select_sql_query(status_sql, None)
+                # Use fetch_type=1 to guarantee a list of dictionaries
+                status_rows = custom_select_sql_query(status_sql, 1)
                 if status_rows and len(status_rows) > 0:
                     fetched_status = status_rows[0].get('do_status')
                     if fetched_status is not None:
-                        # Clean the string from any commas or spaces
                         clean_status = str(fetched_status).replace(",", "").replace(" ", "").replace(".0", "")
-                        # Pad with zeros to at least 8 characters
                         clean_status = clean_status.ljust(8, '0')
                         do_status_str = clean_status
-            except Exception:
+            except Exception as e:
                 pass
 
             valves = {}
             for valve_no in range(1, 7):
-                # 1) Get schedule info
                 schedule_sql = f"""
                     SELECT schedule_id, do_type, do_no,
                            one_on_time, one_off_time,
@@ -180,7 +178,7 @@ def get_branch_config(params):
                     pass
 
                 try:
-                    sched_rows = custom_select_sql_query(schedule_sql, None)
+                    sched_rows = custom_select_sql_query(schedule_sql, 1) # fetch_type=1 to guarantee a list
                     if sched_rows and len(sched_rows) > 0:
                         sched = sched_rows[0]
                         valve_active = sched.get('do_type', 0) is not None
@@ -229,7 +227,7 @@ def get_branch_config(params):
                 LIMIT 1
             """
             try:
-                gs = custom_select_sql_query(gs_sql, None)
+                gs = custom_select_sql_query(gs_sql, None) # returns dict
                 if gs and gs.get('group_schedule_id'):
                     branch_schedule[f"valve_{valve_no}"] = {
                         "do_type": gs.get('do_type'),
