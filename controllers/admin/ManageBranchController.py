@@ -145,8 +145,12 @@ def get_branch_config(params):
                 status_rows = custom_select_sql_query(status_sql, None)
                 if status_rows and len(status_rows) > 0:
                     fetched_status = status_rows[0].get('do_status')
-                    if fetched_status and isinstance(fetched_status, str) and len(fetched_status) >= 6:
-                        do_status_str = fetched_status
+                    if fetched_status is not None:
+                        # Clean the string from any commas or spaces
+                        clean_status = str(fetched_status).replace(",", "").replace(" ", "").replace(".0", "")
+                        # Pad with zeros to at least 8 characters
+                        clean_status = clean_status.ljust(8, '0')
+                        do_status_str = clean_status
             except Exception:
                 pass
 
@@ -170,7 +174,7 @@ def get_branch_config(params):
 
                 # check bit from do_status_str (0-indexed so valve_no - 1)
                 try:
-                    if do_status_str[valve_no - 1] == '1':
+                    if do_status_str[valve_no - 1] in ['1', '2']:
                         valve_data["do_status"] = 1
                 except IndexError:
                     pass
