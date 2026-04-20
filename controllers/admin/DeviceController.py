@@ -195,7 +195,7 @@ async def add_device(params):
     # try:
         
         
-        column="client_id, device, device_name, do_channel, model, lat, lon, imei_no, device_type, last_maintenance, created_at"
+        column="client_id, device, device_name, do_channel, model, lat, lon, imei_no, device_type, gateway_id, last_maintenance, created_at"
         
         rows_data = []
         for params_data in params:
@@ -209,6 +209,7 @@ async def add_device(params):
                 "lon": params_data.lon,
                 "imei_no": params_data.imei_no,
                 "device_type": params_data.device_type or 'OMS',
+                "gateway_id": params_data.gateway_id or '',
                 "last_maintenance": params_data.last_maintenance,
                 "created_at": get_current_datetime()
             }
@@ -226,7 +227,7 @@ async def add_device(params):
 async def edit_device(params):
     try:
         condition = f"device_id = {params.device_id} AND client_id = {params.client_id}"
-        columns={"device":params.device, "device_name":params.device_name, "do_channel":params.do_channel, "model":params.model, "lat":params.lat, "lon":params.lon, "imei_no":params.imei_no, "device_type":params.device_type or 'OMS', "updated_at":get_current_datetime()}
+        columns={"device":params.device, "device_name":params.device_name, "do_channel":params.do_channel, "model":params.model, "lat":params.lat, "lon":params.lon, "imei_no":params.imei_no, "device_type":params.device_type or 'OMS', "gateway_id":params.gateway_id or '', "updated_at":get_current_datetime()}
         data = update_data("md_device", columns, condition)
         print(data)
         return data
@@ -319,6 +320,16 @@ async def manage_list_device(params):
         
         data = select_data(table, select,condition,order_by)
         print("????????????????>>>>>>>>>>>>>>>>",data)
+        return data
+    except Exception as e:
+        raise e
+
+
+async def device_list_by_gateway(gateway_id, user_data):
+    try:
+        select="device_id, device, device_name, model, gateway_id, device_status, branch_number, device_type, lat, lon, imei_no"
+        condition=f"client_id={user_data['client_id']} AND gateway_id='{gateway_id}'"
+        data = select_data("md_device", select, condition, order_by="device ASC")
         return data
     except Exception as e:
         raise e

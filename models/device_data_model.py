@@ -294,6 +294,7 @@ class DeviceAdd(BaseModel):
     lon: str
     imei_no: str
     device_type: Optional[str] = 'OMS'
+    gateway_id: Optional[str] = None
     last_maintenance: date
 
 class DeviceEdit(BaseModel):
@@ -307,6 +308,7 @@ class DeviceEdit(BaseModel):
     lon: str
     imei_no: str
     device_type: Optional[str] = 'OMS'
+    gateway_id: Optional[str] = None
     
 class UserDeviceList(BaseModel):
     client_id: int
@@ -377,3 +379,6 @@ class AmsAlertReportParams(BaseModel):
     device: str
     start_date: date
     end_date: date
+
+class DeviceListByGateway(BaseModel):
+    gateway_id: str

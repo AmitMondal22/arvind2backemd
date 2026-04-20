@@ -59,8 +59,8 @@ async def update_device(device_id, imei=None, gateway_id=None, group_id=None):
             columns["imei_no"] = imei
 
         # ✅ Update gateway_id ONLY if DB value is NULL
-        if gateway_id is not None and device_data.get("gateway_id") is None:
-            columns["gateway_id"] = gateway_id
+        # if gateway_id is not None and device_data.get("gateway_id") is None:
+        #     columns["gateway_id"] = gateway_id
 
         # ✅ Update branch_number ONLY if DB value is NULL
         if group_id is not None and device_data.get("branch_number") is None:
@@ -71,13 +71,13 @@ async def update_device(device_id, imei=None, gateway_id=None, group_id=None):
             update_data("md_device", columns, condition)
 
         # ✅ Call only if both updated (and previously NULL)
-        if (
-            gateway_id is not None
-            and group_id is not None
-            and device_data.get("gateway_id") is None
-            and device_data.get("branch_number") is None
-        ):
-            await new_getway(gateway_id, group_id)
+        # if (
+        #     gateway_id is not None
+        #     and group_id is not None
+        #     and device_data.get("gateway_id") is None
+        #     and device_data.get("branch_number") is None
+        # ):
+        #     await new_getway(gateway_id, group_id)
 
         return True
 
