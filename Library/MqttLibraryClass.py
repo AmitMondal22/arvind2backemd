@@ -29,9 +29,8 @@ class MqttLibraryClass:
         self.subscriptions = []
 
     def on_connect(self, client, userdata, flags, rc):
-        print(f"Connected with result code {rc}")
+        
         for topic, qos in self.subscriptions:
-            print(f"Subscribing to {topic} with qos {qos}")
             client.subscribe(topic, qos=qos)
 
     def on_message(self, client, userdata, msg):
@@ -39,11 +38,10 @@ class MqttLibraryClass:
             # Submit to ThreadPool to prevent blocking the MQTT client
             executor.submit(self.process_message_thread, msg)
         except Exception as e:
-            print("Error parsing on_message submit:", e)
+            print("Error in on_message:", e)
 
     def process_message_thread(self, msg):
         try:
-            print(f"Message received on topic {msg.topic}")
             topic_name=msg.topic
             parts = topic_name.split('/')
             # reqdata=DotDictLibrary(json.loads(msg.payload))
@@ -68,22 +66,15 @@ class MqttLibraryClass:
                         user_data = {}  # Create an empty dictionary
                         user_data['client_id'] = 1  # Assign 123 to 'client_id'
                         user_data['user_id'] = 0  # Assign 123 to 'client_id'
-                        
                         asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData))
                         
                     elif reqdata.pkt == "RT":       #setting type
-                        print("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRT")
-
-
                         days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-        
                         active_days = [
                             days[i] for i in range(7)
                             if reqdata.daysMask & (1 << i)
                         ]
-                        
                         ddyas = ",".join(active_days)
-                        
                         settingsData = MqttPublishDeviceSchedule(
                                             device=str(reqdata.nid),
                                             do_type=int(0 if reqdata.doType == 4 else 1 if reqdata.doType == 5 else 0),  # 4 auto, 5 manual
@@ -98,9 +89,7 @@ class MqttLibraryClass:
                         user_data = {}  # Create an empty dictionary
                         user_data['client_id'] = 1  # Assign 123 to 'client_id'
                         user_data['user_id'] = 0  # Assign 123 to 'client_id'
-                        
                         asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData))
-
                         
                     elif reqdata.pkt == "AD":
                         formatted_date = device_dt.strftime("%Y.%m.%d")
@@ -116,27 +105,23 @@ class MqttLibraryClass:
                             TOT2 = 0,
                             DO = '00000000',
                             # BAT_V = reqdata.batV
-                            BAT_V = 0.0
+                            BAT_V = 0.0,
+                            BRANCH_NUMBER = str(reqdata.groupID)
                         )
-
-                        asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id))
+                        asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id,parts[2]))
                         asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
                         asyncio.run(WaterController.alert_generate(cid_id,device_id,deviceData))
+                        
+                
                 else:
-                    print("?????????????????????????????????????????????????????????????????????")
+                    print("Unknown packet type or missing fields in MQTT message")
                     # Parse the date string; notice that the year is 2 digits (%y)
                     device_dt = datetime.strptime(date_time, "%d-%m-%y %H:%M:%S")
-
                     # Format it to "%Y-%m-%d"
                     formatted_date = device_dt.strftime("%Y.%m.%d")
                     formatted_itme = device_dt.strftime("%H:%M:%S")
-                    
                     fwver = reqdata.fwver
-                  
                     bit_string = ''.join(map(str, reqdata.sw))
-
-                    print("[mqtt res]", bit_string)
-                    
                     deviceData =  WaterDeviceData(
                         UID =  device_id,
                         DT = formatted_date,
@@ -148,18 +133,17 @@ class MqttLibraryClass:
                         TOT2 = 0,
                         DO = bit_string,
                         BAT_V = reqdata.batV,
-                        # BRANCH_NUMBER = reqdata.groupID
+                        BRANCH_NUMBER = reqdata.groupID
                     )
-
-                    asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id))
+                    asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id,parts[2]))
                     asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
                     
-       
+                if hasattr(reqdata, "fwver"):
+                    print("Received LoRa Packet:", reqdata)
+                    asyncio.run(WaterController.new_getway(gateway_id,None))
+                        
             elif parts[1] == "settings":
-                # if parts[2] == "AA":
                 reqdata=DotDictLibrary(json.loads(msg.payload.decode('utf-8')))
-                print(msg.payload.decode('utf-8'))
-                
                 settingsData = MqttPublishDeviceSchedule(
                                     device=str(reqdata.UID),
                                     do_type=int(0 if reqdata.DOTYPE == 4 else 1 if reqdata.DOTYPE == 5 else 0),  # 4 auto, 5 manual
@@ -173,7 +157,6 @@ class MqttLibraryClass:
                 user_data = {}  # Create an empty dictionary
                 user_data['client_id'] = parts[2]  # Assign 123 to 'client_id'
                 user_data['user_id'] = 0  # Assign 123 to 'client_id'
-                print("RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",settingsData,user_data['client_id'])
                 asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData)) 
                 # asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData)) 
                 
@@ -197,7 +180,6 @@ class MqttLibraryClass:
             if (topic, qos) not in self.subscriptions:
                 self.subscriptions.append((topic, qos))
                 if self.client.is_connected():
-                    print("Subscribed to topic: ", topic)
                     self.client.subscribe(topic, qos=qos)
 
     def publish(self, topic, message, qos=0):
