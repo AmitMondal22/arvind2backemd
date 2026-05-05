@@ -49,3 +49,27 @@ async def sennd_ws_message(data_type:str,client_id: int,device_id:int,device:str
 async def sennd_ws_client_message(data_type:str,client_id: int, message: str):
     await manager.send_personal_client_message(data_type, client_id, json.dumps(message))
     return {"message": "Message sent successfully"}
+
+
+# =============================================================================
+# Alert WebSocket - keyed by user mobile number
+# =============================================================================
+from Library.WsAlertConnectionManager import WsAlertConnectionManager
+
+alert_manager = WsAlertConnectionManager()
+
+@ws_routes.websocket("/alert/{mobile}")
+async def alert_websocket_endpoint(websocket: WebSocket, mobile: str):
+    await alert_manager.connect(mobile, websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await alert_manager.send_alert_to_mobile(mobile, f"Echo: {data}")
+    except Exception as e:
+        alert_manager.disconnect(mobile, websocket)
+        print(f"Alert WS: Mobile {mobile} connection closed.")
+
+
+async def send_ws_alert_to_mobile(mobile: str, message: str):
+    """Helper function to send alert to a specific mobile via WebSocket."""
+    await alert_manager.send_alert_to_mobile(mobile, message)

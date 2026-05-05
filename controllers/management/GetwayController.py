@@ -1,4 +1,4 @@
-from db_model.MASTER_MODEL import insert_data, update_data, select_data, delete_data
+from db_model.MASTER_MODEL import insert_data, update_data, select_data, delete_data, custom_select_sql_query
 from utils.date_time_format import get_current_datetime
 
 class GatewayController:
@@ -23,8 +23,23 @@ class GatewayController:
     @staticmethod
     def list_gateway():
         try:
-            select = "id, gateway_id, start_id, max_id, retry, project_id, created_by, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at, DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at"
-            gateways = select_data("md_gateway", select, None, "id DESC")
+            sql = """
+                SELECT 
+                    g.id, 
+                    g.gateway_id, 
+                    g.status,
+                    g.start_id, 
+                    g.max_id, 
+                    g.retry, 
+                    g.connected_device,
+                    g.project_id, 
+                    g.created_by, 
+                    DATE_FORMAT(g.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, 
+                    DATE_FORMAT(g.updated_at, '%Y-%m-%d %H:%i:%s') AS updated_at
+                FROM md_gateway g
+                ORDER BY g.id DESC
+            """
+            gateways = custom_select_sql_query(sql, 1)
             return gateways if gateways else []
         except Exception as e:
             raise e

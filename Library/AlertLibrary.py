@@ -1,7 +1,9 @@
-from db_model.MASTER_MODEL import select_one_data, insert_data, custom_select_sql_query
+from db_model.MASTER_MODEL import select_one_data, insert_data, custom_select_sql_query, select_data
 from config.db import connect
 from Library.EmailLibrary import send_email
 import json
+import asyncio
+
 
 def send_alert(client_id, device, data):
     try:
@@ -55,6 +57,37 @@ def send_alert(client_id, device, data):
             values = f"'{client_id}', '{device}', '{alert_type}', {raw_val}"
             insert_data("oms_alert_log", columns, values)
             
+            # Send alert via WebSocket to all users assigned to this device
+            alert_message = json.dumps({
+                "type": "DEVICE_ALERT",
+                "device": device,
+                "alert_type": alert_type,
+                "value": calibrated_val,
+                "raw_value": raw_val,
+                "message": f"Device {device} Alert: {alert_type}",
+                "client_id": client_id
+            })
+            
+            try:
+                # Get all user mobiles assigned to this device
+                user_mobiles = custom_select_sql_query(
+                    f"SELECT DISTINCT u.user_mobile FROM users u "
+                    f"INNER JOIN md_manage_user_device mud ON u.user_id = mud.user_id "
+                    f"WHERE mud.device_id = (SELECT device_id FROM md_device WHERE device = '{device}' AND client_id = {client_id} LIMIT 1) "
+                    f"AND u.user_mobile IS NOT NULL AND u.user_mobile != ''"
+                )
+                
+                if user_mobiles:
+                    from routes.ws_routes import send_ws_alert_to_mobile
+                    loop = asyncio.get_event_loop()
+                    for user_row in user_mobiles:
+                        mobile = user_row.get('user_mobile')
+                        if mobile:
+                            asyncio.ensure_future(send_ws_alert_to_mobile(mobile, alert_message))
+                            print(f"Alert WS sent to mobile: {mobile} -> {alert_message}")
+            except Exception as ws_err:
+                print(f"Error sending WebSocket alert: {ws_err}")
+
             # Additional email alert
             # html_file_path = 'template/email/template_send_alert1.html'
             # try:
@@ -64,4 +97,3 @@ def send_alert(client_id, device, data):
 
     except Exception as e:
         print("Error in send_alert:", e)
-
