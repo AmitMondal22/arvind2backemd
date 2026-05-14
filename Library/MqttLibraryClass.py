@@ -41,7 +41,7 @@ class MqttLibraryClass:
             print("Error in on_message:", e)
 
     def process_message_thread(self, msg):
-        # try:
+        try:
             
             topic_name=msg.topic
             parts = topic_name.split('/')
@@ -141,8 +141,8 @@ class MqttLibraryClass:
                         BAT_V = reqdata.batV,
                         BRANCH_NUMBER = reqdata.groupID
                     )
-                    asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id,parts[2]))
                     asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
+                    asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id,parts[2]))
                     print("Received LoRa Packet>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>:", reqdata)
                 
                         
@@ -164,8 +164,8 @@ class MqttLibraryClass:
                 asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData)) 
                 # asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData)) 
                 
-        # except Exception as e:
-        #     print("Error in process_message_thread:",e)
+        except Exception as e:
+            print("Error in process_message_thread:",e)
     
 
     def connect(self):

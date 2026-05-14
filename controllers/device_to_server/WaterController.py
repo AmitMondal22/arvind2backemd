@@ -44,7 +44,7 @@ async def get_weather_data(data:device_data_model.WaterDeviceData,client_id,devi
     
 async def update_device(device_id, imei=None, gateway_id=None, group_id=None):
     try:
-        condition = f"device_id = '{device_id}'"
+        condition = f"device = '{device_id}'"
 
         # ✅ Fetch existing device
         device_data = select_one_data("md_device", "*", condition)
