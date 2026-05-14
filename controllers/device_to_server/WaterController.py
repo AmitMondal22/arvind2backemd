@@ -94,6 +94,7 @@ async def alert_generate(client_id, device, data):
     
 async def new_getway(gateway_id, branch = None):
     try:
+        print(f"Processing new gateway: {gateway_id} with branch: {branch}")
         md_gateway = select_one_data(
             "md_gateway",
             "*",

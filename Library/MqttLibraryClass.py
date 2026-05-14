@@ -41,7 +41,8 @@ class MqttLibraryClass:
             print("Error in on_message:", e)
 
     def process_message_thread(self, msg):
-        try:
+        # try:
+            
             topic_name=msg.topic
             parts = topic_name.split('/')
             # reqdata=DotDictLibrary(json.loads(msg.payload))
@@ -55,6 +56,11 @@ class MqttLibraryClass:
                 date_time = reqdata.dt
                 # Parse the date string; notice that the year is 2 digits (%y)
                 device_dt = datetime.strptime(date_time, "%d-%m-%y %H:%M:%S")
+                
+                if hasattr(reqdata, "fwver"):
+                    print("Received MQTT message on topic:", msg.topic)
+                    print("Received LoRa Packet>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>:", reqdata)
+                    asyncio.run(WaterController.new_getway(gateway_id,None))
                 
                 if hasattr(reqdata, "pkt"):
                     if reqdata.pkt == "RM":     #get Sheduling     
@@ -137,10 +143,8 @@ class MqttLibraryClass:
                     )
                     asyncio.run(WaterController.get_weather_data(deviceData,cid_id,device_id,parts[2]))
                     asyncio.run(WaterController.update_device(device_id,imei_id,gateway_id,reqdata.groupID))
-                    
-                if hasattr(reqdata, "fwver"):
-                    print("Received LoRa Packet:", reqdata)
-                    asyncio.run(WaterController.new_getway(gateway_id,None))
+                    print("Received LoRa Packet>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>:", reqdata)
+                
                         
             elif parts[1] == "settings":
                 reqdata=DotDictLibrary(json.loads(msg.payload.decode('utf-8')))
@@ -160,8 +164,8 @@ class MqttLibraryClass:
                 asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData)) 
                 # asyncio.run(mqtt_routes.insert_updatesheduling(user_data,settingsData)) 
                 
-        except Exception as e:
-            print("Error in process_message_thread:",e)
+        # except Exception as e:
+        #     print("Error in process_message_thread:",e)
     
 
     def connect(self):
