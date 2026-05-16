@@ -100,12 +100,16 @@ async def new_getway(gateway_id, branch = None):
             "*",
             f"gateway_id='{gateway_id}'"
         )
-
         current_datetime = get_current_datetime()
 
         # ✅ Gateway check
         if md_gateway and md_gateway.get("gateway_id"):
-            print("Gateway already exists → skip insert")
+            condition = f"gateway_id  = '{gateway_id}'"
+            columns_upd = {
+                "status": "ONLINE",
+                "updated_at": current_datetime
+            }
+            update_data("md_gateway", columns_upd, condition)
         else:
             columns = "gateway_id, start_id, max_id, retry, created_at"
             value = f"'{gateway_id}', 0, 0, 2, '{current_datetime}'"
