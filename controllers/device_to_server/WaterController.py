@@ -43,7 +43,8 @@ async def get_weather_data(data:device_data_model.WaterDeviceData,client_id,devi
     
     
 async def update_device(device_id, imei=None, gateway_id=None, group_id=None):
-    try:
+    # try:
+        print(f"Updating device {device_id} with IMEI: {imei}, Gateway ID: {gateway_id}, Group ID: {group_id}")
         condition = f"device = '{device_id}'"
 
         # ✅ Fetch existing device
@@ -59,15 +60,16 @@ async def update_device(device_id, imei=None, gateway_id=None, group_id=None):
             columns["imei_no"] = imei
 
         # ✅ Update gateway_id ONLY if DB value is NULL
-        # if gateway_id is not None and device_data.get("gateway_id") is None:
-        #     columns["gateway_id"] = gateway_id
+        if gateway_id is not None:
+            columns["gateway_id"] = gateway_id
 
         # ✅ Update branch_number ONLY if DB value is NULL
-        if group_id is not None and device_data.get("branch_number") is None:
+        if group_id is not None:
             columns["branch_number"] = group_id
 
         # ✅ Update only if something to update
         if len(columns) > 1:  # means something extra besides device_status
+            print(f"/////////////////////////",columns)
             update_data("md_device", columns, condition)
 
         # ✅ Call only if both updated (and previously NULL)
@@ -81,8 +83,8 @@ async def update_device(device_id, imei=None, gateway_id=None, group_id=None):
 
         return True
 
-    except Exception as e:
-        raise ValueError(f"Could not update device: {str(e)}")
+    # except Exception as e:
+    #     raise ValueError(f"Could not update device: {str(e)}")
 
 async def alert_generate(client_id, device, data):
     try:
