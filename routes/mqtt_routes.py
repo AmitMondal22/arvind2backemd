@@ -116,7 +116,7 @@ def encode_gc_frame(device_id, do_states):
 
 @mqtt_routes.post("/publish_all_digital_output", dependencies=[Depends(mw_user_client)])
 async def publish_message(request: Request, message_data: MqttAllWfmsDO):
-    # try:
+    try:
         user_data=request.state.user_data 
         # Sort the list by do_no just in case it's not ordered
         sorted_dos = sorted(message_data.do, key=lambda x: x.do_no)
@@ -134,10 +134,10 @@ async def publish_message(request: Request, message_data: MqttAllWfmsDO):
         mqtt_client.publish(f"/ST/{getway_id}", srdata, qos=1)
         resdata = successResponse(user_data, message="Message published successfully")
         return Response(content=json.dumps(resdata), media_type="application/json", status_code=200)
-    # except ValueError as ve:
-    #     raise HTTPException(status_code=400, detail=str(ve))
-    # except Exception as e:
-    #     raise HTTPException(status_code=500, detail="Internal server error")
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @mqtt_routes.post("/publish_digital_output", dependencies=[Depends(mw_user_client)])
 async def publish_message(request: Request, message_data: MqttWfmsDO):
